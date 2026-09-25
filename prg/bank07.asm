@@ -35,6 +35,7 @@ ninpo          = $64
 health         = $65
 score          = $60
 score_hi       = $61
+sound          = $0600 ; which sound to play
 area           = $6D
 lives          = $76
 prg_bank       = $5C
@@ -179,7 +180,7 @@ reset_cont:
         cmp #$10
         bne @continue
         lda #$24
-        sta $0600
+        sta sound
         lda #$80
         sta $1E
         bmi @continue           ; always
@@ -192,7 +193,7 @@ reset_cont:
         jsr set_prg             ; bank 0 at $8000
         ldx area
         lda $AFC6,x             ; table in the bank at $8000
-        sta $0600
+        sta sound
 @continue:
         jsr player_control
         jsr scroll_stage
@@ -240,7 +241,7 @@ lC104:
         lda $01
         jsr edit_number
         sta $01
-        sta $0600                       ; play that sound
+        sta sound                       ; play that sound
         bne lC104
 lC110:
         lda #$03
@@ -520,7 +521,7 @@ lC312:
         dec $04A0,x
         bmi lC333
         lda #$20
-        sta $0600
+        sta sound
         lda #$0A
         sta enemy_timer,x
 lC332:
@@ -772,7 +773,7 @@ lC4F1:
         bmi lC51A
         jsr lCB73
         lda #$21
-        sta $0600
+        sta sound
         ldx $00
         lda #$20
         jsr set_enemy_action
@@ -1341,7 +1342,7 @@ lC93B:
         jsr alloc_enemy
         bmi lC960
         lda #$1A
-        sta $0600
+        sta sound
         jsr lCC0B
         txa
         ldx $00
@@ -1881,7 +1882,7 @@ lCD41:
         lda #$3F
         jsr set_enemy_action
         lda #$1C
-        sta $0600
+        sta sound
         jsr chase_ryu
         jsr face_ryu
         stx $00
@@ -2057,7 +2058,7 @@ lCEC1:
         and #$30
         beq lCEE2
         lda #$41
-        sta $0600
+        sta sound
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -2278,7 +2279,7 @@ lD07E:
         and #$30
         beq lD09F
         lda #$41
-        sta $0600
+        sta sound
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -2430,7 +2431,7 @@ lD1A0:
         lda #$00
         sta enemy_state,x
         lda #$1E
-        sta $0600
+        sta sound
 lD1C0:
         ldx $00
         rts
@@ -2528,7 +2529,7 @@ lD270:
         jsr alloc_enemy
         bmi lD2AD
         lda #$1A
-        sta $0600
+        sta sound
         lda #$88
         sta enemy_x,x
         lda #$78
@@ -2720,7 +2721,7 @@ lD3D8:
         lda #$57
         jsr set_enemy_action
         lda #$0E
-        sta $0600
+        sta sound
         lda #$00
         sta enemy_state,x
 lD408:
@@ -2935,7 +2936,7 @@ lD55E:
         sta enemy_x_sub,x
         sta enemy_y_sub,x
         lda #$1C
-        sta $0600
+        sta sound
         lda #$00
         sta enemy_state,x
         rts
@@ -3046,7 +3047,7 @@ score_leftovers:
         and #$01
         bne lD66A
         lda #$13
-        sta $0600
+        sta sound
 lD66A:
         lda #$02
         sta $04BA
@@ -3077,7 +3078,7 @@ lD694:
 boss_burst:
         stx $00
         lda #$40
-        sta $0600
+        sta sound
         lda #$00
         sta thrown
         lda bit_mask,x
@@ -3142,7 +3143,7 @@ move_weapon:
         dec $04C8
         beq lD72A
         lda #$1B
-        sta $0600
+        sta sound
         lda #$3C                        ; one second
         sta $04C7
         bne lD72E
@@ -3177,7 +3178,7 @@ lD753:
         lda #$3C
         sta $04C7
         lda #$16
-        sta $0600
+        sta sound
         dec $04C8
         bne lD76B
         lda #$00
@@ -3204,7 +3205,7 @@ lD76E:
         and #$FE
         sta thrown
         lda #$0D
-        sta $0600
+        sta sound
         rts
 lD79B:
         sec
@@ -3307,7 +3308,7 @@ lD84C:
         sta thrown
         bne lD85C
         lda #$0D
-        sta $0600
+        sta sound
 lD85C:
         rts
 
@@ -3726,7 +3727,7 @@ lDB4F:
         cmp $CE
         bcs lDB85
         lda #$15
-        sta $0600
+        sta sound
         lda weapon
         cmp #$82                        ; Windmill Throwing Star keeps going
         beq lDB67
@@ -3776,7 +3777,7 @@ lDBA7:
         cmp #$11
         bcs lDBC8
         lda #$13
-        sta $0600
+        sta sound
         lda $01
         ora #$08
         sta $01
@@ -3823,14 +3824,14 @@ lDBE7:
 lDBF0:
         sta ninpo
         lda #$13
-        sta $0600
+        sta sound
         rts
 
 ; --- $DBF8  1-UP
 one_up:
         inc lives
         lda #$14
-        sta $0600
+        sta sound
         rts
 
 ; --- $DC00  Add 6 to Ryu's health, up to full.
@@ -3844,7 +3845,7 @@ add_health:
 lDC0B:
         sta health
         lda #$15
-        sta $0600
+        sta sound
         rts
 
 ; --- $DC13  Add 5 to the score.
@@ -3863,7 +3864,7 @@ lDC19:
         adc score_hi
         sta score_hi
         lda #$13
-        sta $0600
+        sta sound
         rts
 
 ; --- $DC2A  Hourglass. Freeze every enemy for about five seconds.
@@ -3881,7 +3882,7 @@ hourglass:
         sta weapon
 lDC42:
         lda #$13
-        sta $0600
+        sta sound
         rts
 
 ; --- $DC48  Invincible Fire-Wheel. A flame circles Ryu, and enemies cannot hurt him.
@@ -3928,7 +3929,7 @@ lDC7E:
         lda #$00
         sta thrown
         lda #$13
-        sta $0600
+        sta sound
         rts
 
 ; --- $DC88  Draw the lanterns on screen.
@@ -4265,7 +4266,7 @@ lDEBE:
         sta enemy_hp,x
         tay
         lda #$3F
-        sta $0600
+        sta sound
         lda enemy_flags
         lsr
         bcc lDECE
@@ -4331,7 +4332,7 @@ lDF1F:
         sta enemy_hp,x
         tay
         lda #$3F
-        sta $0600
+        sta sound
         lda enemy_flags
         lsr
         bcc lDF39
@@ -4380,7 +4381,7 @@ grunt_dies:
         lda #$00
         sta facing
         lda #$12
-        sta $0600
+        sta sound
         rts
 
 ; --- $DF87  A is 0 when the floor ends in the direction he is walking.
@@ -4672,7 +4673,7 @@ lE16C:
         rts
 lE177:
         lda #$11
-        sta $0600
+        sta sound
         lda ryu_flags
         ldy $94
         bne lE186
@@ -4767,7 +4768,7 @@ lE20F:
         sta enemy_hp,x
         sta $00
         lda #$3F
-        sta $0600
+        sta sound
         lda enemy_flags
         lsr
         bcc lE22C
@@ -4965,7 +4966,7 @@ area_event:
         lda prg_bank
         sta $7F
         lda #$25
-        sta $0600
+        sta sound
         lda #$00
         jsr set_prg
         ldx area
@@ -5050,7 +5051,7 @@ lose_life:
         lda #$10
         sta health              ; full health
         lda #$23
-        sta $0600
+        sta sound
         lda #$14
         sta pose
         dec lives
@@ -5074,7 +5075,7 @@ lose_life:
         jsr set_prg
         ldx area
         lda $AFC6,x
-        sta $0600
+        sta sound
         jsr lF6B5
         jsr show_packet
         jmp to_hold
@@ -5175,7 +5176,7 @@ lose_life:
         jsr set_prg
         ldx area
         lda $AFC6,x
-        sta $0600
+        sta sound
         jsr prepare_area
         jsr load_room
         jsr lF6B5
@@ -5204,7 +5205,7 @@ boot_banks:
         lda $AF2C,x
         sta $6E
         lda $AFC6,x
-        sta $0600
+        sta sound
         jsr prepare_area
         jsr load_room
         jsr fade_in
@@ -5690,7 +5691,7 @@ finish_area:
         rts
 lE8A0:
         lda #$25
-        sta $0600
+        sta sound
         jsr fade_out
 ; --- $E8A8  Load the next area.
 next_area:
@@ -5709,7 +5710,7 @@ next_area:
         lda $AF2C,x
         sta $6E
         lda $AFC6,x
-        sta $0600
+        sta sound
         jmp fade_in
 lE8D2:
         inc $6E
@@ -6160,7 +6161,7 @@ lEC34:
         bit $04B8
         bmi lEC3E
         lda #$0F
-        sta $0600
+        sta sound
 lEC3E:
         lda #$00
         sta height_frac
@@ -6178,7 +6179,7 @@ lEC3E:
         bit $04B8
         bmi lEC64
         lda #$0F
-        sta $0600
+        sta sound
 lEC64:
         lda #$00
         sta height_frac
@@ -6216,7 +6217,7 @@ lEC96:
         bit $04B8
         bmi lECA6
         lda #$35
-        sta $0600
+        sta sound
 lECA6:
         lda ryu_flags
         ora #$08
@@ -6240,7 +6241,7 @@ lECB1:
         bit $04B8
         bmi lECD4
         lda #$1A
-        sta $0600
+        sta sound
 lECD4:
         lda #$07
         jmp set_action                  ; spinning sword
@@ -6248,7 +6249,7 @@ lECD9:
         bit $04B8
         bmi lECE3
         lda #$35
-        sta $0600
+        sta sound
 lECE3:
         lda #$06
         jmp set_action                  ; regular sword
@@ -6263,7 +6264,7 @@ do_jump:
         bit $04B8
         bmi lECF9
         lda #$0F
-        sta $0600
+        sta sound
 lECF9:
         lda ryu_flags
         ora #$04
@@ -6312,7 +6313,7 @@ lED3A:
         bit $04B8
         bmi lED50
         lda #$35
-        sta $0600
+        sta sound
 lED50:
         lda #$03
         jmp set_action                  ; sword
@@ -6333,7 +6334,7 @@ lED55:
         bit $04B8
         bmi lED78
         lda #$1A
-        sta $0600
+        sta sound
 lED78:
         lda #$07
         jmp set_action                  ; spinning sword
@@ -6341,7 +6342,7 @@ lED7D:
         bit $04B8
         bmi lED87
         lda #$35
-        sta $0600
+        sta sound
 lED87:
         lda #$06
         jmp set_action                  ; regular sword
@@ -6354,7 +6355,7 @@ lED8D:
         bit $04B8
         bmi lED9D
         lda #$0F
-        sta $0600
+        sta sound
 lED9D:
         lda ryu_flags
         ora #$04
@@ -6400,7 +6401,7 @@ lEDDE:
         bit $04B8
         bmi lEDEE
         lda #$35
-        sta $0600
+        sta sound
 lEDEE:
         lda ryu_flags
         ora #$08
@@ -6424,7 +6425,7 @@ lEDF9:
         bit $04B8
         bmi lEE1C
         lda #$1A
-        sta $0600
+        sta sound
 lEE1C:
         lda #$07
         jmp set_action                  ; spinning sword
@@ -6432,7 +6433,7 @@ lEE21:
         bit $04B8
         bmi lEE2B
         lda #$35
-        sta $0600
+        sta sound
 lEE2B:
         lda #$06
         jmp set_action                  ; regular sword
@@ -6445,7 +6446,7 @@ lEE31:
         bit $04B8
         bmi lEE41
         lda #$0F
-        sta $0600
+        sta sound
 lEE41:
         lda ryu_flags
         ora #$04
@@ -6480,7 +6481,7 @@ lEE6A:
         bit $04B8
         bmi lEE7A
         lda #$35
-        sta $0600
+        sta sound
 lEE7A:
         lda ryu_flags
         ora #$08
@@ -6493,7 +6494,7 @@ lEE85:
         bit $04B8
         bmi lEE93
         lda #$35
-        sta $0600
+        sta sound
 lEE93:
         lda #$06
         jmp set_action                  ; regular sword
@@ -6611,7 +6612,7 @@ lEF1D:
         bit $04B8
         bmi lEF55
         lda #$19
-        sta $0600
+        sta sound
 lEF55:
         rts
 
@@ -6657,7 +6658,7 @@ lEF84:
         bit $04B8
         bmi lEF58
         lda #$17
-        sta $0600
+        sta sound
         rts
 
 ; --- $EFA4  Windmill Throwing Star. Cuts through and comes back, for 5 ninpo.
@@ -6699,7 +6700,7 @@ lEFC8:
         bit $04B8
         bmi lEFF0
         lda #$18
-        sta $0600
+        sta sound
 lEFF0:
         rts
 
@@ -6765,7 +6766,7 @@ lF04A:
         bit $04B8
         bmi lF05E
         lda #$0F
-        sta $0600
+        sta sound
 lF05E:
         lda ryu_flags
         and #$F2
@@ -7852,7 +7853,7 @@ tick_clock:
         cmp #$0A
         bcs refresh_status              ; ten seconds or more left
         lda #$1B
-        sta $0600
+        sta sound
 ; --- $F7FC  One status field per frame: score, time, health, ninpo, the boss, lives.
 refresh_status:
         dec status_i

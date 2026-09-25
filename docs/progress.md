@@ -33,9 +33,11 @@ bank 07 at `$C000`, so each switched bank can be its own file.
 - PRG bank 02 (`prg/bank02.asm`) is the pictures and animation scripts
   the engine switches in at `$8000`. Pose tables, each action's pictures,
   and where the enemies and lanterns stand in a room.
+- PRG bank 00 (`prg/bank00.asm`) is the areas and the rooms. The ground
+  for each room, where Ryu enters, the act and stage, and each enemy's
+  health, the damage he does, and the points he is worth.
 
 ## Next
 
-- Disassemble another switched PRG bank. Banks 00, 01, and 03–06 are
-  still `INCBIN`. Bank 00 is the area tables, the ground, and enemy
-  health. Bank 04 is the cutscenes `area_event` calls.
+- Disassemble another switched PRG bank. Banks 01 and 03–06 are still
+  `INCBIN`. Bank 04 is the cutscenes `area_event` calls.

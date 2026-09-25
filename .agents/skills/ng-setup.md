@@ -49,6 +49,9 @@ need the bins (or later, source in place of `INCBIN`).
 5. `make banks` if the bins are missing.
 6. `make verify`. Leave it green.
 
+Naming and comments are part of this step, not a follow-up. Follow
+`ng-annotate`: identify and annotate only where the certainty bar is met.
+
 File banks stay 16 KiB PRG and 8 KiB CHR until the MMC1 control register
 is named. Do not merge them into CPU windows in this step.
 

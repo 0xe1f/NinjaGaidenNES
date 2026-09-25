@@ -1,0 +1,22 @@
+# Local dump and assembled ROM. SHA-1 is committed; the image is not.
+reference/
+*.nes
+
+# Leftover INCBIN banks (`make banks`). Never committed.
+prg/*.bin
+chr/*.bin
+
+# Toolchain built from source (tools/install-cc65, cc65 V2.19).
+tools/ca65
+tools/ld65
+
+# MesenCE, used to play the local dump and trace the CPU. Not part of the build.
+tools/mesen/
+
+# Assembler scratch.
+generated/
+
+# Python
+**/__pycache__/
+
+.DS_Store

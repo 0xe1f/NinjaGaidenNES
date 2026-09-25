@@ -1,0 +1,31 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Same pin as tools/install-cc65 (cc65 V2.19). Binaries only.
+      - name: Build ca65 and ld65
+        run: |
+          git clone --depth 1 --branch V2.19 https://github.com/cc65/cc65.git /tmp/cc65
+          make -C /tmp/cc65 bin
+          mkdir -p tools
+          cp /tmp/cc65/bin/ca65 /tmp/cc65/bin/ld65 tools/
+
+      - name: make verify
+        run: make verify
+
+      - name: Discard assembled ROM
+        if: always()
+        run: rm -f NinjaGaiden.nes

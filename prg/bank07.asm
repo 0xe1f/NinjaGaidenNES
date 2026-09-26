@@ -8134,7 +8134,7 @@ nmi:
         stx MMC1_PRG
         stx MMC1_PRG
         stx MMC1_PRG
-        jsr $8000
+        jsr $8000               ; play the sounds
         lda prg_bank
         sta MMC1_PRG
         lsr

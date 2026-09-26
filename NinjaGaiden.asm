@@ -17,7 +17,8 @@
 ;  Reset stores MMC1 control $1E: PRG banks 00-06 switch at $8000, bank 07
 ;  stays at $C000-$FFFF, CHR is two 4 KiB banks. One file per PRG bank
 ;  until a switched bank is disassembled. Bank 00 is prg/bank00.asm.
-;  Bank 02 is prg/bank02.asm. Bank 07 is prg/bank07.asm.
+;  Bank 02 is prg/bank02.asm. Bank 03 is prg/bank03.asm.
+;  Bank 07 is prg/bank07.asm.
 ;
 ;  Vectors (bank 07): NMI $F91A, RESET $FFDA, IRQ $FA1F.
 ; ===========================================================================
@@ -40,7 +41,7 @@
     .segment "PRG2"
     .include "prg/bank02.asm"
     .segment "PRG3"
-    .incbin "prg/bank03.bin"
+    .include "prg/bank03.asm"
     .segment "PRG4"
     .incbin "prg/bank04.bin"
     .segment "PRG5"

@@ -64,6 +64,59 @@ select. Nothing in the game calls it. Up, A, B, and Start opens a sound
 test first; picking 0 leaves that and then you pick the stage. A and
 Right add one, A and Left subtract one, Start confirms.
 
+## Sound
+
+NMI switches to bank 03 and calls `play_sounds` (`$8000`) every frame.
+The number in `sound` (`$0600`) indexes `sound_list` (`$877D`). `$25`
+does not play a song; it stops whatever is playing. Start stores `$24`
+and does not pause the game. The next Start clears that and plays the
+stage music again. A note can fade, and its pitch can wobble.
+
+Stage music:
+
+| Number | Where |
+|---|---|
+| `$03` | Act I stage 1, Act V stage 2, Act VI stage 3 |
+| `$04` | Act II stage 1, Act VI stage 1 |
+| `$05` | Act II stage 2, Act IV stage 1 |
+| `$06` | Act I stage 2, Act II stage 3, Act III stage 3, Act IV stage 4, Act VI stage 4 |
+| `$07` | Act V stage 1, Act V stage 4, Act VI stage 5 |
+| `$0B` | Act III stage 2, Act VI stage 2 |
+| `$0C` | Act IV stage 2 |
+| `$2B` | Act VI stage 4 |
+| `$2D` | Act III stage 1 |
+| `$30` | Act IV stage 3 |
+| `$31` | Act V stage 3 |
+
+Effects:
+
+| Number | When |
+|---|---|
+| `$0D` | A thrown weapon ends |
+| `$0E` | Jaquio fires |
+| `$0F` | He jumps, and when he leaves the air |
+| `$11` | Ryu is hurt |
+| `$12` | An enemy dies |
+| `$13` | A pickup, or points |
+| `$14` | A 1-UP |
+| `$15` | Health, or a lantern breaking |
+| `$16` | While the Invincible Fire-Wheel burns |
+| `$17` | The Throwing Star |
+| `$18` | The Windmill Throwing Star |
+| `$19` | Art of the Fire Wheel |
+| `$1A` | The spinning sword, the stone man's ring, and the Masked Devil calling fireballs |
+| `$1B` | The beep while the Hourglass runs, and when time is short |
+| `$1C` | Bomberhead's sickle, and the last boss's fireballs |
+| `$1E` | Bloody Malth calls the lightning |
+| `$20` | The machine gunner fires |
+| `$21` | The crouching soldier fires |
+| `$23` | He loses a life |
+| `$24` | Start is pressed |
+| `$35` | The sword |
+| `$3F` | An enemy is hit |
+| `$40` | The boss explodes |
+| `$41` | Basaquer and Kelbeross |
+
 ## Vectors
 
 Last six bytes of PRG file bank 07:

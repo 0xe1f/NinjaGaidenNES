@@ -11,7 +11,8 @@ description: >-
 
 Identification and annotation are part of disassembly, not a later pass.
 When a bank or a block becomes source, name what is clear and comment it
-in the same step. `make verify` still has to match.
+in the same step, then update `docs/progress.md` (`ng-notes`). `make verify`
+still has to match.
 
 Certainty is 80% or better before a name or a label comment. Below that,
 leave the address label and do not invent a name from a count, a guess,

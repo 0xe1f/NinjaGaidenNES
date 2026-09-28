@@ -28,6 +28,8 @@ nmi_latch      = $1F
 pad_cur        = $28
 pad_edge       = $29
 packet         = $2B   ; screen update pointer; the high byte is the next address
+picture_at     = $E4   ; where a picture is drawn
+picture_at_hi  = $E5   ; the high byte of that place
 status_i       = $3E   ; which status field is redrawn this frame
 timer          = $63
 frames         = $62   ; counts down to the next second
@@ -4990,7 +4992,7 @@ area_event:
         lda #$04
         jsr set_prg
         tya
-        jsr $8000                       ; this area's cutscene
+        jsr play_cutscene               ; this area's cutscene
         lda $7B
         sta ppuctrl_shadow
         lda $7C
@@ -5188,7 +5190,7 @@ boot_banks:
         lda #$04
         jsr set_prg
         lda #$00
-        jsr $8000               ; bank 4
+        jsr play_cutscene       ; the opening
         lda #$00
         sta $56                 ; CHR bank 0 value NMI writes
         jsr fill_both_nametables
@@ -5968,12 +5970,12 @@ prepare_area:
         sta timer
         lda $AF84,x
         sta $C2
-        lda $AF00,x
+        lda area_gfx,x
         tay
         and #$1C
         clc
         adc #$80
-        sta $45
+        sta $45                         ; which four tiles
         lda #$00
         sta $44
         tya
@@ -5981,7 +5983,7 @@ prepare_area:
         tay
         clc
         adc #$B0
-        sta $47
+        sta $47                         ; the tile for each block
         lda #$00
         sta $46
         tya
@@ -5996,7 +5998,7 @@ prepare_area:
         asl
         clc
         adc #$A0
-        sta $43
+        sta $43                         ; which blocks
         lda #$00
         sta $42
         lda $AF16,x
@@ -6860,9 +6862,9 @@ show_screen:
         tay
         lda #$01
         jsr set_prg
-        lda $B400,y
-        sta packet
-        lda $B401,y
+        lda screen_list,y
+        sta packet                      ; this screen
+        lda screen_list+1,y
         sta packet+1
 
 ; --- $F104  wait until NMI sets nmi_latch, then clear it -------------------

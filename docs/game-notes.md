@@ -26,7 +26,14 @@ Area 0 is Act I and area 1 is the Barbarian. After he dies there is a
 cutscene, the Act II title card, and another cutscene before stage 2-1.
 Area 2 is those scenes, not stage 2-1.
 `$76` is lives, set to 2 at boot: `lose_life` decrements it, and below 0
-waits for Start.
+shows game over and waits for Start.
+
+`area_gfx` (`$AF00`) picks the pictures for this area, in bank 1.
+`block_tiles` (`$8000`) is the four tiles in one block. `which_blocks`
+(`$A000`) says which blocks to draw. `block_tile` (`$B000`) is the tile
+drawn for that block. `show_screen` (`$F0F3`) draws a screen from
+`screen_list` (`$B400`): black and white, the screen an area starts on,
+game over, the stage select, or SOUND.
 
 `player_control` (`$EB7B`) runs every play frame. `$8A` is Ryu's height,
 `$89` his vertical speed, and `$87` the fraction under it. Each airborne
@@ -63,6 +70,25 @@ the list are unused. `pick_area` (`$C0E9`) is a hidden stage
 select. Nothing in the game calls it. Up, A, B, and Start opens a sound
 test first; picking 0 leaves that and then you pick the stage. A and
 Right add one, A and Left subtract one, Start confirms.
+
+## Cutscenes
+
+When an area ends, `area_event` switches to bank 04 and calls
+`play_cutscene` (`$8000`) with that area's byte from `cutscene`
+(`$AF9A`). Reset calls the same entry with 0, the opening. The opening
+plays again when it finishes. Start skips a cutscene, except Act VI,
+stage 5 (`$0B`). When that one finishes, the game resets.
+
+If A, B, Select, Down, and Left are held when Start skips the opening,
+the sound test runs. Bank 06 shows a number. Down lowers it, Up raises
+it, A plays that number, B plays a sound, and Start resets the game.
+If those buttons are not held, another script plays. Start during that
+one continues, and the game starts. If that script finishes on its own,
+the opening plays again.
+
+Bank 06 also draws the pictures on the cutscene background, at `picture_at`
+(`$E4`). It holds a copy of the lines, through the staff roll. The copy
+a cutscene reads is in bank 05.
 
 ## Sound
 

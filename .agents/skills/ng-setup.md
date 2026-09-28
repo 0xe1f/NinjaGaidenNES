@@ -63,17 +63,19 @@ is named. Do not merge them into CPU windows in this step.
 `make verify`. It stays red while banks are `INCBIN`, because the bins
 are gitignored. Do not commit bins to turn CI green.
 
-The coverage job does not assemble. It runs `tools/coverage.py` and, on
-a push to the default branch, force-pushes Shields.io JSON to an orphan
-`badges` branch.
+The coverage job does not assemble. It runs `tools/coverage.py`. On a
+push to the default branch it rewrites the four coverage shield URLs
+in the README and pushes that with `[skip ci]`.
 
 ## README shields
 
-Origin is `0xe1f/NinjaGaidenNES`. After the title, the README has the
-verify badge and four endpoint badges: in source, named, op comments,
-sub comments. URLs use that slug. Do not invent another. Do not put a
+Origin is `0xe1f/NinjaGaidenNES`. The repo is private, so Shields.io
+cannot read a `badges` branch. After the title, the README has the
+verify badge and four static shields: in source, named, op comments,
+sub comments. The numbers are in the image URL. Do not point those four
+at `raw.githubusercontent.com`. Do not invent another slug. Do not put a
 coverage table in the README. `make coverage` writes JSON under
-`generated/badges/` and prints the report.
+`generated/badges/` and prints the report. It does not edit the README.
 
 | Badge | Count | Done when |
 |---|---|---|

@@ -295,6 +295,22 @@ def _comment_color(pct: float) -> str:
     return "lightgrey"
 
 
+def _badge_part(text: str) -> str:
+    # Shields turns _ into a space, -- into a dash, and %2F into a slash.
+    text = text.replace("%", "%25")
+    text = text.replace("_", "__")
+    text = text.replace("-", "--")
+    text = text.replace(" ", "_")
+    return text.replace("/", "%2F")
+
+
+def static_badge_url(label: str, message: str, color: str) -> str:
+    return (
+        "https://img.shields.io/badge/"
+        f"{_badge_part(label)}-{_badge_part(message)}-{color}?style=flat"
+    )
+
+
 def _endpoint(label: str, message: str, color: str) -> dict:
     return {
         "schemaVersion": 1,
@@ -305,25 +321,53 @@ def _endpoint(label: str, message: str, color: str) -> dict:
     }
 
 
-def badge_payloads(stats: dict) -> dict[str, dict]:
+def badge_fields(stats: dict) -> list[tuple[str, str, str]]:
     rom = stats["rom_bytes"]
     lab = stats["labelled_bytes"]
     auto = stats["auto_labels"]
     pct = stats["comment_pct"]
-    return {
-        "in-source.json": _endpoint(
-            "in source", f"{_kib(lab)} / {_kib(rom)} KiB", _in_source_color(lab, rom)
-        ),
-        "named.json": _endpoint("named", f"{auto} left", _named_color(auto)),
-        "op-comments.json": _endpoint(
-            "op comments", f"{pct:g}%", _comment_color(pct)
-        ),
-        "sub-comments.json": _endpoint(
+    return [
+        ("in source", f"{_kib(lab)} / {_kib(rom)} KiB", _in_source_color(lab, rom)),
+        ("named", f"{auto} left", _named_color(auto)),
+        ("op comments", f"{pct:g}%", _comment_color(pct)),
+        (
             "sub comments",
             f"{stats['subs_doc']} / {stats['subs']}",
             _comment_color(stats["subs_pct"]),
         ),
+    ]
+
+
+def badge_payloads(stats: dict) -> dict[str, dict]:
+    names = {
+        "in source": "in-source.json",
+        "named": "named.json",
+        "op comments": "op-comments.json",
+        "sub comments": "sub-comments.json",
     }
+    return {
+        names[label]: _endpoint(label, message, color)
+        for label, message, color in badge_fields(stats)
+    }
+
+
+def update_readme(path: Path, stats: dict) -> bool:
+    # The repo is private, so Shields cannot fetch JSON from it. The
+    # numbers live in the image URL instead.
+    text = path.read_text()
+    original = text
+    for label, message, color in badge_fields(stats):
+        url = static_badge_url(label, message, color)
+        pattern = re.compile(
+            r"(\[!\[)" + re.escape(label) + r"(\]\()[^)]+(\)\])"
+        )
+        text, n = pattern.subn(r"\1" + label + r"\2" + url + r"\3", text, count=1)
+        if n != 1:
+            raise SystemExit(f"README is missing the {label} shield")
+    if text == original:
+        return False
+    path.write_text(text)
+    return True
 
 
 def write_badges(dest: Path, stats: dict) -> None:
@@ -364,6 +408,11 @@ def render(stats: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Disassembly progress badges")
     parser.add_argument("--badges", metavar="DIR", help="write Shields.io JSON here")
+    parser.add_argument(
+        "--readme",
+        metavar="PATH",
+        help="rewrite the coverage shield URLs in this file",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     stats = scan()
@@ -376,6 +425,11 @@ def main(argv: list[str] | None = None) -> int:
         if not dest.is_absolute():
             dest = ROOT / dest
         write_badges(dest, stats)
+    if args.readme:
+        readme = Path(args.readme)
+        if not readme.is_absolute():
+            readme = ROOT / readme
+        update_readme(readme, stats)
     return 0
 
 

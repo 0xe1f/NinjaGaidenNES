@@ -1,10 +1,10 @@
 # Ninja Gaiden (NES) — disassembly
 
 [![verify](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml/badge.svg)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![in source](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/in-source.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![named](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/named.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![op comments](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/op-comments.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![sub comments](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/sub-comments.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![in source](https://img.shields.io/badge/in_source-256_%2F_256_KiB-brightgreen?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![named](https://img.shields.io/badge/named-1145_left-red?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![op comments](https://img.shields.io/badge/op_comments-4.6%25-lightgrey?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![sub comments](https://img.shields.io/badge/sub_comments-133_%2F_136-brightgreen?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
 
 > This project is a human-guided, largely AI-executed workflow.
 

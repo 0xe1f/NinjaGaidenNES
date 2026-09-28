@@ -1355,14 +1355,7 @@ fA245:
         .byte $59, $00, $04
 
 ; --- $A7D5  The lines spoken in the cutscenes.
-line_end       = $F8                    ; the line is over
-skip_ahead     = $F9                    ; skip ahead by the next number
-line_in        = $FA                    ; the next line, one character in
-clear_text     = $FB                    ; clear the text area, then wait
-wait_text      = $FC                    ; wait about a second
-start_picture  = $FD                    ; set a picture. the next byte says which
-change_picture = $FE                    ; change that picture
-new_line       = $FF                    ; the next line
+; The marks in these lines are the ones bank 05 reads.
 .charmap $27, $25                       ; apostrophe
         .byte "?", new_line
         .byte new_line

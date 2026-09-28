@@ -88,7 +88,54 @@ the opening plays again.
 
 Bank 06 also draws the pictures on the cutscene background, at `picture_at`
 (`$E4`). It holds a copy of the lines, through the staff roll. The copy
-a cutscene reads is in bank 05.
+a cutscene reads, and the reader, are in bank 05.
+
+Every frame, before the script steps, `move_actors` (`$8003`) moves up
+to four pictures. After the step, `draw_actors` (`$8006`) draws them.
+Sprite 0 stays the split. The other sprites start at `sprite_i`
+(`$033F`). A picture's first byte is its sprite tiles, stored in
+`chr_bank0` (`$56`), which NMI loads at `$0000`.
+
+The four pictures stand in slots of 16 bytes at `$0340`. `actor_move`
+is how that picture moves: it stays, it slides, it walks a path from
+`picture_path` (`$84AB`), or it slides and its speed changes. `actor_x`
+(`$0342`) is where it stands and `actor_y` (`$0344`) is how high. Bit 6
+of `actor_flags` (`$0345`) faces it left. Bit 7 of `actor_pic` (`$0348`)
+means the pose comes from `pose_list` (`$8408`); otherwise that byte is
+one picture from `actor_pics` (`$84B9`). `pose_time` (`$92C3`) is how
+long each pose stays. The high half of that byte is reloaded when the
+low half runs out.
+
+Irene Lew is pose list 1, pictures `$17` and `$18`, and list `$0A`,
+pictures `$23` and `$24`.
+Walter Smith is list 2, pictures `$19` and `$1A`. The Jaquio is list
+`$08`, pictures `$26` and `$27`.
+
+A command of `$C0` or higher in the script starts a line. The low 6
+bits are how many frames each letter waits (`line_speed`, `$0316`).
+The next byte is which line in `line_list` (`$92D0`). `start_line`
+(`$800C`) points `line_ptr` (`$E6`) at it and sets `line_on` (`$0313`).
+While that is set, `read_text` (`$8009`) runs every frame.
+
+The letters are written at `$2283`, near the bottom of the screen. The
+box is 26 letters across and four lines tall. Each letter is drawn with
+the blank tile `$FA` above it. A space or a mark is moved up into the tiles; a
+letter is already its tile. The apostrophe is stored as `$25`.
+
+| Byte | What it does |
+|---|---|
+| `$F8` `line_end` | The line is over. `line_on` clears, so the reader stops |
+| `$F9` `skip_ahead` | Skip ahead by the next number |
+| `$FA` `line_in` | The next line, one letter in |
+| `$FB` `clear_text` | Wait about three seconds, then wipe the box, one column a frame |
+| `$FC` `wait_text` | Wait about a second |
+| `$FD` `start_picture` | Play a picture in one of the four slots. The top two bits pick the slot. The pose comes from a list |
+| `$FE` `change_picture` | Show one picture in that slot |
+| `$FF` `new_line` | The next line |
+
+The lines are the story between the stages, from the letter about the
+Dragon sword through the staff roll. The roll ends with "THANK YOU FOR
+PLAYING." and "AND SEE YOU NEXT."
 
 ## Sound
 

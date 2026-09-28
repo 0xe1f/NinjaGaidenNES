@@ -20,12 +20,12 @@ LD65     ?= tools/ld65
 ROM      ?= reference/gaiden.nes
 SHA1SUM  ?= $(shell command -v sha1sum 2>/dev/null || echo "shasum -a 1")
 
-PRG_BINS := $(patsubst %,prg/bank%.bin,05)
+PRG_BINS :=
 CHR_BINS := $(patsubst %,chr/bank%.bin,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15)
 
 .PHONY: all verify clean banks tools
 
-INCLUDES := prg/bank00.asm prg/bank01.asm prg/bank02.asm prg/bank03.asm prg/bank04.asm prg/bank06.asm prg/bank07.asm
+INCLUDES := prg/bank00.asm prg/bank01.asm prg/bank02.asm prg/bank03.asm prg/bank04.asm prg/bank05.asm prg/bank06.asm prg/bank07.asm
 
 all: $(OUT)
 

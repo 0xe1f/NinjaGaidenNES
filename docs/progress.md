@@ -103,12 +103,73 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   are the tiles on the sound test. `pick_routine` (`$818E`) calls the
   routine picked from the list after the jsr. `start_sound_test` (`$8003`)
   is that list's entry for the sound test. `picture_at` (`$E4`) is where
-  the picture is drawn, and `picture_at_hi` (`$E5`) is the high byte. The lines start at `$A7D5`. `new_line` and `line_in` break a line, `wait_text` waits about a second, `clear_text` clears the text area and waits, `line_end` ends the line, `skip_ahead` skips ahead, and `start_picture` / `change_picture` set a picture. The staff roll is at `$B122`.
+  the picture is drawn, and `picture_at_hi` (`$E5`) is the high byte. The lines start at `$A7D5`. `new_line` and `line_in` break a line, `wait_text` waits about a second, `clear_text` waits and then wipes the text, `line_end` ends the line, `skip_ahead` skips ahead, and `start_picture` / `change_picture` set a picture. The staff roll is at `$B122`. The marks are the ones bank 05 reads.
   `call_bank_06` (`$BF98`) finishes a call from another bank and switches
   that bank back. `draw_routines` (`$BFB3`) is the list those calls use.
   `reset_copy_06` (`$BFDA`) is the same first instructions as reset.
+- PRG bank 05 (`prg/bank05.asm`) is the pictures that move during a
+  cutscene, and the lines that are spoken. Switched in at `$8000`.
+  Every frame, bank 04 calls `move_actors` (`$8003`) before the script
+  steps and `draw_actors` (`$8006`) after. `draw_actor` (`$8000`) draws
+  one picture's sprites. `use_picture` (`$8013`) does that draw; A is
+  the picture number times two. `next_group` (`$8025`) is the next group
+  of tiles, and `next_tile` (`$8067`) is the next tile in it.
+  `start_line` (`$800C`) starts the line
+  the call was given. `read_text` (`$8009`) reads it while `line_on`
+  (`$0313`) is set.
+  `move_one` (`$80D6`) moves one of the four pictures. Kind 1 stays,
+  kind 2 slides (`add_place`, `$80DD`), kind 3 walks a path
+  (`follow_path`, `$8104`), and kind 4 slides and changes speed
+  (`add_speed`, `$815D`). `draw_one` (`$8193`) draws one picture.
+  `actor_move` (`$0340`) is how it moves; 0 means the slot is empty.
+  `actor_x` (`$0342`) is where it stands, `actor_y` (`$0344`) how high,
+  with the fractions in `actor_x_lo` (`$0341`) and `actor_y_lo`
+  (`$0343`). `actor_flags` (`$0345`) bit 6 faces left. `actor_time`
+  (`$0346`) is the frames left on this pose, `actor_pose` (`$0347`)
+  which pose, and `actor_pic` (`$0348`) which picture. Bit 7 of that
+  picks the pose from `pose_list` (`$8408`). Irene Lew is list 1 and
+  list `$0A`. Walter Smith is list 2. The Jaquio is list `$08`.
+  `pixel_shift` (`$83DF`) is how many pixels to shift a sprite.
+  `picture_path` (`$84AB`) is where a picture walks. `actor_pics`
+  (`$84B9`) is the pictures. The first byte is the sprite tiles, stored
+  in `chr_bank0` (`$56`). `pose_time` (`$92C3`) is how long each pose
+  stays. `sprite_i` (`$033F`) is the next sprite. `draw_x` (`$0381`),
+  `draw_x_hi` (`$0382`), and `draw_y` (`$0383`) are where it is drawn.
+  `draw_flags` (`$0380`) is the facing for that draw.
+  `open_line` (`$83B4`) points `line_ptr` (`$E6`) at the line from
+  `line_list` (`$92D0`). The lines run from `$93B2` through the staff
+  roll. `read_char` (`$8210`) takes the next letter or command.
+  `write_char` (`$8231`) puts the letter on screen with a blank above
+  it. That blank is `blank_tile` (`$FA`). The box starts at `box_top`
+  (`$22`), `box_left` (`$83`). `row_down` (`$40`) steps down one line.
+  `letter_tile` (`$8396`) is the tile for that letter.
+  `hand_text` (`$83A3`) hands the letters to the screen. `end_line`
+  (`$8270`) finishes the line. `do_skip` (`$8276`) skips ahead.
+  `next_row` (`$8296`) is the next line, and `indent_row` (`$830D`) is
+  the next line, one letter in. `pause_line` (`$82CB`) waits about a
+  second. `begin_clear` (`$82B0`) waits about three seconds, then
+  `clear_column` (`$8327`) blanks the box one column at a time.
+  `line_pose` (`$82D1`) plays a picture in one of the four slots, and
+  `line_picture` (`$82F6`) shows one picture there.
+  `line_i` (`$0314`) is which byte of the line. `line_wait` (`$0315`)
+  is the frames left before the next step. `line_speed` (`$0316`) is
+  the frames between letters. `line_at` (`$0317`) and `line_at_hi`
+  (`$0318`) are where the next letter is written. `line_job` (`$0319`)
+  is 0 while reading and 1 while wiping. `line_col` (`$031A`) is how
+  far along the row. `wipe_col` (`$031B`) is the column being wiped.
+  `speed_copy` (`$031C`) keeps the letter delay during the wipe.
+  `call_num` (`$0394`) is the number the call was given. `packet_i`
+  (`$0395`) is where the next letter is added. `tile_buf` (`$03C3`)
+  holds those letters. `tiles_handed` (`$0387`) means this frame's
+  tiles were already handed over.
+  `pick_entry` (`$80A8`) calls the routine picked from the list after
+  the jsr. `call_bank_05` (`$BF98`) finishes a call from another bank
+  and switches that bank back. `cutscene_routines` (`$BFB3`) is the
+  list those calls use. `reset_copy_05` (`$BFDA`) is the same first
+  instructions as reset.
 
 ## Next
 
-- Disassemble the last switched PRG bank. Bank 05 is still `INCBIN`.
-  Every cutscene frame calls it, and it reads its own copy of the lines.
+- Disassemble the CHR banks. They are still `INCBIN`. Each moving
+  picture's first byte is the sprite tiles, and NMI loads `chr_bank0`
+  (`$56`) at `$0000`. `area_gfx` picks the stage tiles.

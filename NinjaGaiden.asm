@@ -15,8 +15,8 @@
 ;    PRG file banks 00-07   8 x 16 KiB
 ;    CHR file banks 00-15  16 x  8 KiB
 ;  Reset stores MMC1 control $1E: PRG banks 00-06 switch at $8000, bank 07
-;  stays at $C000-$FFFF, CHR is two 4 KiB banks. Each PRG bank is its own
-;  file. CHR is still one incbin per file bank. Bank 00 is prg/bank00.asm.
+;  stays at $C000-$FFFF, CHR is two 4 KiB banks. Each PRG bank and each
+;  CHR bank is its own file. Bank 00 is prg/bank00.asm.
 ;  Bank 01 is prg/bank01.asm. Bank 02 is prg/bank02.asm.
 ;  Bank 03 is prg/bank03.asm. Bank 04 is prg/bank04.asm.
 ;  Bank 05 is prg/bank05.asm. Bank 06 is prg/bank06.asm.
@@ -55,34 +55,34 @@
 
 ; --- CHR ----------------------------------------------------------------
     .segment "CHR0"
-    .incbin "chr/bank00.bin"
+    .include "chr/bank00.asm"
     .segment "CHR1"
-    .incbin "chr/bank01.bin"
+    .include "chr/bank01.asm"
     .segment "CHR2"
-    .incbin "chr/bank02.bin"
+    .include "chr/bank02.asm"
     .segment "CHR3"
-    .incbin "chr/bank03.bin"
+    .include "chr/bank03.asm"
     .segment "CHR4"
-    .incbin "chr/bank04.bin"
+    .include "chr/bank04.asm"
     .segment "CHR5"
-    .incbin "chr/bank05.bin"
+    .include "chr/bank05.asm"
     .segment "CHR6"
-    .incbin "chr/bank06.bin"
+    .include "chr/bank06.asm"
     .segment "CHR7"
-    .incbin "chr/bank07.bin"
+    .include "chr/bank07.asm"
     .segment "CHR8"
-    .incbin "chr/bank08.bin"
+    .include "chr/bank08.asm"
     .segment "CHR9"
-    .incbin "chr/bank09.bin"
+    .include "chr/bank09.asm"
     .segment "CHR10"
-    .incbin "chr/bank10.bin"
+    .include "chr/bank10.asm"
     .segment "CHR11"
-    .incbin "chr/bank11.bin"
+    .include "chr/bank11.asm"
     .segment "CHR12"
-    .incbin "chr/bank12.bin"
+    .include "chr/bank12.asm"
     .segment "CHR13"
-    .incbin "chr/bank13.bin"
+    .include "chr/bank13.asm"
     .segment "CHR14"
-    .incbin "chr/bank14.bin"
+    .include "chr/bank14.asm"
     .segment "CHR15"
-    .incbin "chr/bank15.bin"
+    .include "chr/bank15.asm"

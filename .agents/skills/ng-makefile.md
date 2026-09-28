@@ -28,5 +28,8 @@ The script exits instead of writing when they disagree.
 `reference/gaiden.nes` is a prerequisite of `make banks` only. `all` depends
 on the leftover bin files and on `INCLUDES` (every `.include`), not on the dump.
 
+`make coverage` is part of the generated file. It writes Shields JSON
+under `generated/badges/` and does not change the bank lists.
+
 A bank that is entirely `.asm` drops its `.incbin` and therefore its bin
 prerequisite. The `.segment` stays. Regenerate, then `make verify`.

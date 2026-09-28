@@ -128,6 +128,7 @@ def render(
 #   make verify     SHA-1 check against {STEM}.sha1
 #   make banks      split reference/gaiden.nes into prg/ and chr/ bins
 #   make tools      build ca65/ld65 into tools/ (cc65 V2.19)
+#   make coverage   Shields.io JSON under generated/badges/ (does not edit README)
 #   make clean      remove the assembled ROM and object file
 #
 # Prerequisite: tools/ca65 and tools/ld65 (make tools).
@@ -146,7 +147,7 @@ SHA1SUM  ?= $(shell command -v sha1sum 2>/dev/null || echo "shasum -a 1")
 {prg_bins}
 {chr_bins}
 
-.PHONY: all verify clean banks tools
+.PHONY: all verify clean banks tools coverage
 
 INCLUDES := {includes_line}
 
@@ -165,6 +166,9 @@ banks: $(ROM) tools/split-rom.py
 
 tools:
 	tools/install-cc65
+
+coverage:
+	python3 tools/coverage.py --badges generated/badges
 
 clean:
 	rm -f $(OUT)

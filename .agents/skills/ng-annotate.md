@@ -49,7 +49,7 @@ Statement comment: end of that line only. If the purpose is not definite, leave 
 
 ## Pixels
 
-When a sprite or tile is monochrome and each row is 8 pixels or fewer, write the pixels in binary, one row per line. The leftmost pixel is the high bit.
+When a sprite or tile is monochrome and each row is 8 pixels or fewer, write the pixels in binary, one row per line. The leftmost pixel is the high bit. A picture taller than 8 rows is still binary, one row per line.
 
 ```
         .byte %00111100

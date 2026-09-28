@@ -14,6 +14,15 @@ SHA-1 `ca513f841d75efeb33bb8099fb02beeb39f6bb9c`.
 | PRG file | 128 KiB at file offset `$10`, banks `prg/bank00`–`bank07` |
 | CHR file | 128 KiB at file offset `$20010`, banks `chr/bank00`–`bank15` |
 
+Each tile is 8×8. A one-color tile is written in binary, one row per
+line, and the left pixel is the high bit. MMC1 shows 4 KiB at a time.
+NMI writes `$56` to the sprite patterns and `$59` to the background.
+A room stores a sprite bank `$00`–`$0F` in `$56`. The background is
+bank `$10`, the first half of file bank 08, and that is where the
+letters live. A–Z are tiles `$41`–`$5A`. a–z are `$61`–`$7A`. A
+cutscene picture's first byte is the sprite bank it switches in:
+`$10`–`$15` or `$17`–`$1F`.
+
 Reset writes MMC1 control `$1E` (five stores to `$9FFF`, LSB first:
 `0,1,1,1,1`). That is vertical mirroring, 16 KiB PRG with file bank 07
 fixed at `$C000`, and 4 KiB CHR. File banks 00–06 are the `$8000` window.

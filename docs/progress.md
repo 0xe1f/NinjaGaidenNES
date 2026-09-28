@@ -167,9 +167,16 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   and switches that bank back. `cutscene_routines` (`$BFB3`) is the
   list those calls use. `reset_copy_05` (`$BFDA`) is the same first
   instructions as reset.
+- CHR file banks 00–15 (`chr/bank00.asm`–`chr/bank15.asm`) are the
+  pattern tiles. MMC1 switches 4 KiB at a time, so each file is two
+  banks. A room stores one of `$00`–`$0F` in `$56`, and NMI shows that
+  at `$0000` for the sprites. Bank `$10`, the first half of file bank
+  08, is the background. The letters there are the ones the text box
+  writes: A–Z are tiles `$41`–`$5A` (`letter_A`–`letter_Z`) and a–z are
+  `$61`–`$7A` (`letter_a`–`letter_z`). A cutscene picture's first byte
+  is the sprite bank it needs, `$10`–`$15` or `$17`–`$1F`. A one-color
+  tile is binary, one row per line. The left pixel is the high bit.
 
 ## Next
 
-- Disassemble the CHR banks. They are still `INCBIN`. Each moving
-  picture's first byte is the sprite tiles, and NMI loads `chr_bank0`
-  (`$56`) at `$0000`. `area_gfx` picks the stage tiles.
+- None. Every file bank is `.asm`.

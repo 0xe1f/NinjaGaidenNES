@@ -5,6 +5,7 @@
 #   make verify     SHA-1 check against NinjaGaiden.sha1
 #   make banks      split reference/gaiden.nes into prg/ and chr/ bins
 #   make tools      build ca65/ld65 into tools/ (cc65 V2.19)
+#   make coverage   Shields.io JSON under generated/badges/ (does not edit README)
 #   make clean      remove the assembled ROM and object file
 #
 # Prerequisite: tools/ca65 and tools/ld65 (make tools).
@@ -21,11 +22,11 @@ ROM      ?= reference/gaiden.nes
 SHA1SUM  ?= $(shell command -v sha1sum 2>/dev/null || echo "shasum -a 1")
 
 PRG_BINS :=
-CHR_BINS := $(patsubst %,chr/bank%.bin,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15)
+CHR_BINS :=
 
-.PHONY: all verify clean banks tools
+.PHONY: all verify clean banks tools coverage
 
-INCLUDES := prg/bank00.asm prg/bank01.asm prg/bank02.asm prg/bank03.asm prg/bank04.asm prg/bank05.asm prg/bank06.asm prg/bank07.asm
+INCLUDES := prg/bank00.asm prg/bank01.asm prg/bank02.asm prg/bank03.asm prg/bank04.asm prg/bank05.asm prg/bank06.asm prg/bank07.asm chr/bank00.asm chr/bank01.asm chr/bank02.asm chr/bank03.asm chr/bank04.asm chr/bank05.asm chr/bank06.asm chr/bank07.asm chr/bank08.asm chr/bank09.asm chr/bank10.asm chr/bank11.asm chr/bank12.asm chr/bank13.asm chr/bank14.asm chr/bank15.asm
 
 all: $(OUT)
 
@@ -42,6 +43,9 @@ banks: $(ROM) tools/split-rom.py
 
 tools:
 	tools/install-cc65
+
+coverage:
+	python3 tools/coverage.py --badges generated/badges
 
 clean:
 	rm -f $(OUT)

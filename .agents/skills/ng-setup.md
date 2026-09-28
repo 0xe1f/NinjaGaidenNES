@@ -63,4 +63,24 @@ is named. Do not merge them into CPU windows in this step.
 `make verify`. It stays red while banks are `INCBIN`, because the bins
 are gitignored. Do not commit bins to turn CI green.
 
-No GitHub origin: do not invent a badge URL.
+The coverage job does not assemble. It runs `tools/coverage.py` and, on
+a push to the default branch, force-pushes Shields.io JSON to an orphan
+`badges` branch.
+
+## README shields
+
+Origin is `0xe1f/NinjaGaidenNES`. After the title, the README has the
+verify badge and four endpoint badges: in source, named, op comments,
+sub comments. URLs use that slug. Do not invent another. Do not put a
+coverage table in the README. `make coverage` writes JSON under
+`generated/badges/` and prints the report.
+
+| Badge | Count | Done when |
+|---|---|---|
+| in source | PRG+CHR bytes not behind `.incbin` | every bank byte is `.asm` |
+| named | remaining `Xhhhh` definitions (one letter, four hex digits) | none left |
+| op comments | instruction lines with a `;` comment | long tail |
+| sub comments | named `jsr` targets with a comment block immediately above | every called routine has docs |
+
+The 16-byte iNES header is outside the KiB total. `@` locals are named.
+`jmp` targets are not subs. A trailing `;` on the label line is not docs.

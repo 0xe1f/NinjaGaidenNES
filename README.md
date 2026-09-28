@@ -1,5 +1,11 @@
 # Ninja Gaiden (NES) — disassembly
 
+[![verify](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml/badge.svg)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![in source](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/in-source.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![named](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/named.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![op comments](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/op-comments.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![sub comments](https://img.shields.io/endpoint?style=flat&url=https://raw.githubusercontent.com/0xe1f/NinjaGaidenNES/badges/sub-comments.json)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+
 > This project is a human-guided, largely AI-executed workflow.
 
 A work-in-progress, **byte-exact and reassemblable** disassembly of Tecmo's
@@ -17,7 +23,7 @@ NinjaGaiden.cfg     ld65 layout (header, 8 x 16 KiB PRG, 16 x 8 KiB CHR)
 NinjaGaiden.sha1    SHA-1 of the original 256 KiB + header image (`make verify`)
 prg/                PRG file banks (INCBIN leftovers are gitignored .bin)
 chr/                CHR file banks
-tools/              split-rom.py, install-cc65
+tools/              split-rom.py, install-cc65, coverage.py
 docs/               reverse-engineering notes (`game-notes.md`, `progress.md`)
 Makefile            build / verify
 ```
@@ -31,6 +37,7 @@ at `tools/ca65` and `tools/ld65`:
 make tools      # clone and build cc65 V2.19 into tools/
 make banks      # split reference/gaiden.nes (local dump, gitignored)
 make verify     # assemble, then SHA-1 check against NinjaGaiden.sha1
+make coverage   # local Shields JSON under generated/badges/
 ```
 
 `make` alone produces `NinjaGaiden.nes` in the repo root (gitignored).

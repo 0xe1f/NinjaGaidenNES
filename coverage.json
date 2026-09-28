@@ -1,0 +1,50 @@
+{
+  "rom_bytes": 262144,
+  "header_bytes": 16,
+  "labelled_bytes": 262144,
+  "incbin_bytes": 0,
+  "auto_labels": 1145,
+  "opcodes": 9250,
+  "commented": 429,
+  "comment_pct": 4.6,
+  "subs": 136,
+  "subs_doc": 133,
+  "subs_pct": 97.8,
+  "windows": [
+    {
+      "name": "prg/bank03",
+      "incbin": 0,
+      "auto": 63,
+      "subs": 5,
+      "subs_doc": 5
+    },
+    {
+      "name": "prg/bank04",
+      "incbin": 0,
+      "auto": 94,
+      "subs": 34,
+      "subs_doc": 34
+    },
+    {
+      "name": "prg/bank05",
+      "incbin": 0,
+      "auto": 275,
+      "subs": 9,
+      "subs_doc": 9
+    },
+    {
+      "name": "prg/bank06",
+      "incbin": 0,
+      "auto": 94,
+      "subs": 11,
+      "subs_doc": 11
+    },
+    {
+      "name": "prg/bank07",
+      "incbin": 0,
+      "auto": 619,
+      "subs": 77,
+      "subs_doc": 74
+    }
+  ]
+}

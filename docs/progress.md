@@ -39,8 +39,22 @@ bank 07 at `$C000`, so each switched bank can be its own file.
 - PRG bank 03 (`prg/bank03.asm`) is the sounds, switched in at `$8000`.
   NMI calls `play_sounds` (`$8000`) every frame. `start_sound` (`$8243`)
   starts the number in `sound` (`$0600`): the stage, a jump, the sword,
-  a pickup. `stop_sound` (`$800B`) is sound `$25`, which stops whatever
-  is playing. `read_notes` (`$82B9`) reads the next note. `note_pitch`
+  a pickup. `stop_sound` (`$800B`) is sound `$25`, which fades out
+  whatever is playing. Six sounds can wait. `channels` (`$0606`) is
+  which tracks are playing. A track's note time is `note_left`
+  (`$0607`), its length `note_hold` (`$0608`), and its loudness
+  `loud_left` (`$0609`) and `loud_level` (`$060A`). The track is
+  `track` (`$0627`): the notes, the loudness, the pitch, and where a
+  called part returns. `track_tune` (`$06A7`) is added to the pitch.
+  `wobble_on` (`$06AF`) makes it wobble around `pitch_low` (`$06B7`)
+  and `pitch_high` (`$06BF`). `fade_left` (`$06C7`) counts down to the
+  next step quieter, and `fade_load` (`$06CF`) is that wait. `period_hi`
+  (`$06D7`) is the high pitch byte last sent. `sweep_off` (`$06DB`) is
+  set while the pitch is not sliding. `drum_wait` (`$06DF`) holds a
+  drum until it is allowed. The loudness shapes include `fade_down`,
+  `swell_fade`, `rise_hold`, `fade_waver`, `fade_longer`, `fade_slow`,
+  `fade_skip`, `fade_uneven`, and `waver_down`. Sound `$02` plays when
+  a cutscene ends. `read_notes` (`$82B9`) reads the next note. `note_pitch`
   (`$856E`) is how high it is, `note_length` (`$8586`) how long it lasts,
   and `loudness` (`$85B1`) how loud it gets. `write_channel` (`$80F4`)
   plays one channel. `note_loudness` (`$8161`) sets that loudness, then
@@ -176,6 +190,7 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   `$61`–`$7A` (`letter_a`–`letter_z`). A cutscene picture's first byte
   is the sprite bank it needs, `$10`–`$15` or `$17`–`$1F`. A one-color
   tile is binary, one row per line. The left pixel is the high bit.
+  The number above each tile is the same one on `gfx/tiles/bankNN.png`.
 
 ## Next
 

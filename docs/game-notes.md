@@ -15,7 +15,9 @@ SHA-1 `ca513f841d75efeb33bb8099fb02beeb39f6bb9c`.
 | CHR file | 128 KiB at file offset `$20010`, banks `chr/bank00`–`bank15` |
 
 Each tile is 8×8. A one-color tile is written in binary, one row per
-line, and the left pixel is the high bit. MMC1 shows 4 KiB at a time.
+line, and the left pixel is the high bit. The number above each tile
+in `chr/bankNN.asm` is the same one printed on `gfx/tiles/bankNN.png`.
+MMC1 shows 4 KiB at a time.
 NMI writes `$56` to the sprite patterns and `$59` to the background.
 A room stores a sprite bank `$00`–`$0F` in `$56`. The background is
 bank `$10`, the first half of file bank 08, and that is where the
@@ -149,10 +151,37 @@ PLAYING." and "AND SEE YOU NEXT."
 ## Sound
 
 NMI switches to bank 03 and calls `play_sounds` (`$8000`) every frame.
-The number in `sound` (`$0600`) indexes `sound_list` (`$877D`). `$25`
-does not play a song; it stops whatever is playing. Start stores `$24`
-and does not pause the game. The next Start clears that and plays the
-stage music again. A note can fade, and its pitch can wobble.
+The number in `sound` (`$0600`) indexes `sound_list` (`$877D`). Six
+sounds can wait. `$25` does not play a song; it fades out whatever is
+playing. Start stores `$24` and does not pause the game. The next Start
+clears that and plays the stage music again. `$02` plays when a
+cutscene ends.
+
+`channels` (`$0606`) is which tracks are playing, one bit each. Two
+tracks share each of the squares, the triangle, and the noise. A drum
+is separate, and `drum_wait` (`$06DF`) holds it until the song allows
+it. A track lives at `track` (`$0627`), sixteen bytes apart: where its
+notes are, which loudness shape it uses, the pitch, and where to come
+back after a called part. `note_left` (`$0607`) is the frames left on
+the note and `note_hold` (`$0608`) is that length. `loud_left`
+(`$0609`) is the frames until the loudness changes, and `loud_level`
+(`$060A`) is how loud the shape says it is. `track_tune` (`$06A7`) is
+added to the pitch. A higher number is a little lower. While
+`wobble_on` (`$06AF`) is set, the pitch moves around the note in
+`pitch_low` (`$06B7`) and `pitch_high` (`$06BF`): a little lower, the
+note, a little higher, and back. `fade_left` (`$06C7`) counts down to
+the next step quieter. `fade_load` (`$06CF`) is that wait, used again.
+`period_hi` (`$06D7`) is the high pitch byte last sent. Sending it
+again starts the note over. `sweep_off` (`$06DB`) is set while the
+pitch is not sliding.
+
+A note's loudness is a list of pairs: how many frames, then how loud.
+`fade_down` steps from full to quiet. `swell_fade` rises, holds, then
+fades. `rise_hold` rises, stays loud, then goes quiet. `fade_waver` fades and then
+wavers. `fade_longer` fades with each step a little longer. `fade_slow`
+fades a little. `fade_skip` skips every other level. `fade_uneven`
+fades in uneven steps. `waver_down` wavers and slowly falls. Some
+shapes stay loud, stay quiet, or are loud for only a few frames.
 
 Stage music:
 

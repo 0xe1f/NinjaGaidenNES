@@ -1,43 +1,65 @@
 ; PRG file bank 03, switched in at $8000-$BFFF.
 ; The sounds. Bank 07 calls this every frame, and writes sound
-; when something should play.
+; when something should play. Six sounds can wait at once.
+; A sound uses the two squares, the triangle, and the noise.
+; A second set of tracks shares those, and a drum plays on its own.
+
+channels   = $0606     ; which tracks are playing. One bit each.
+note_left  = $0607     ; frames left on this note
+note_hold  = $0608     ; how long that note is
+loud_left  = $0609     ; frames until the loudness changes
+loud_level = $060A     ; how loud it is
+track      = $0627     ; one track: its notes, loudness, pitch, and where to return
+track_tune = $06A7     ; added to the pitch. A higher number is a little lower.
+wobble_on  = $06AF     ; the pitch wobbles
+pitch_low  = $06B7     ; the note, before it wobbles
+pitch_high = $06BF     ; the high byte of that note
+fade_left  = $06C7     ; frames until the note gets quieter
+fade_load  = $06CF     ; that wait, used again
+period_hi  = $06D7     ; high pitch byte last sent. Sending it starts the note over.
+sweep_off  = $06DB     ; set while the pitch is not sliding
+drum_wait  = $06DF     ; a drum waits while this is set
 
 ; --- $8000  Play the sounds. Called every frame.
 play_sounds:
         ldx #$05
-l8002:
+; The next sound waiting to play.
+next_sound:
         ldy sound,x
-        beq l8047
-        cpy #$25                            ; stop the sound
-        bne l8044
-; Sound $25 stops what is playing.
+        beq skip_slot                       ; nothing waiting
+        cpy #$25                            ; fade the sound out
+        bne play_one
+; Sound $25 fades out whatever is playing.
 stop_sound:
         lda #$40
-        sta $06C7
-        sta $06C8
-        sta $06C9
-        sta $06CA
-        sta $06CB
-        sta $06CC
-        sta $06CD
-        sta $06CE
-        sta $06CF
-        sta $06D0
-        sta $06D1
-        sta $06D2
-        sta $06D3
-        sta $06D4
-        sta $06D5
-        sta $06D6
+        sta fade_left
+        sta fade_left+1
+        sta fade_left+2
+        sta fade_left+3
+        sta fade_left+4
+        sta fade_left+5
+        sta fade_left+6
+        sta fade_left+7
+        sta fade_load
+        sta fade_load+1
+        sta fade_load+2
+        sta fade_load+3
+        sta fade_load+4
+        sta fade_load+5
+        sta fade_load+6
+        sta fade_load+7
         lda #$00
         sta sound,x
-        beq l804A
-l8044:
+        beq play_tracks                     ; always
+; This one plays.
+play_one:
         jsr start_sound
-l8047:
+; Nothing is waiting in this slot.
+skip_slot:
         dex
-        bpl l8002
-l804A:
+        bpl next_sound
+; The waiting sounds are in. Play the tracks.
+play_tracks:
         lda #$27
         sta $F0
         lda #$06
@@ -46,23 +68,25 @@ l804A:
         sta $F2
         ldy #$08
         sty $F3
-l805A:
-        lda $0606
+; Read this track if its bit is set.
+next_track:
+        lda channels
         lsr
-        bcc l8062
+        bcc save_bits
         ora #$80
-l8062:
-        sta $0606
-        bcc l809C
+; This track's bit moves to the end of the row.
+save_bits:
+        sta channels
+        bcc advance_track                   ; this track is off
         ldx $F2
-        dec $0607,x
-        bne loudness_step
+        dec note_left,x
+        bne loudness_step                   ; the note is still going
         jsr read_notes
 ; The next change in loudness.
 loudness_step:
         ldx $F2
-        dec $0609,x
-        bne l8099
+        dec loud_left,x
+        bne apply_loud                      ; the loudness holds
         ldy #$02
         lda ($F0),y
         sta $F6
@@ -73,18 +97,20 @@ loudness_step:
         lda ($F0),y
         pha
         clc
-        adc #$02
+        adc #$02                            ; the next pair in the shape
         sta ($F0),y
         pla
         tay
         lda ($F6),y
-        sta $0609,x
+        sta loud_left,x
         iny
         lda ($F6),y
-        sta $060A,x
-l8099:
+        sta loud_level,x
+; Use the loudness, whether or not it just changed.
+apply_loud:
         jsr note_loudness
-l809C:
+; On to the next track.
+advance_track:
         clc
         lda #$10
         adc $F0
@@ -93,7 +119,7 @@ l809C:
         adc $F2
         sta $F2
         dec $F3
-        bne l805A
+        bne next_track
         lda #$27
         sta $F0
         sta $FC
@@ -102,24 +128,27 @@ l809C:
         sta $FD
         lda #$03
         sta $F2
-        lda #$11
+        lda #$11                            ; two tracks share each channel
         sta $F3
-l80C1:
-        lda $0606
+; Square, square, triangle, then noise.
+next_channel:
+        lda channels
         and $F3
-        beq l80DC
+        beq advance_channel
         and #$0F
-        bne l80D9
+        bne channel_on                      ; the first track on this channel
         clc
-        lda #$40
+        lda #$40                            ; the other track on this channel
         adc $F0
         sta $F0
         lda #$00
         adc $F1
         sta $F1
-l80D9:
+; Send this channel.
+channel_on:
         jsr write_channel
-l80DC:
+; On to the next channel.
+advance_channel:
         clc
         lda #$10
         adc $FC
@@ -131,12 +160,12 @@ l80DC:
         sta $F1
         asl $F3
         dec $F2
-        bpl l80C1
+        bpl next_channel
         rts
 ; --- $80F4  Play this channel.
 write_channel:
         lda #$03
-        eor $F2
+        eor $F2                             ; the channel, turned around
         asl
         asl
         tax
@@ -146,33 +175,37 @@ write_channel:
         lda $F2
         sta $FB
         cmp #$01                            ; the triangle
-        bne l810F
+        bne square_noise
         pla
         and #$0F
         ora #$80
-        bne l812A
-l810F:
+        bne triangle_out
+; A square, or the noise.
+square_noise:
         pla
-        ora #$30
+        ora #$30                            ; the loudness holds at this level
         sta $4000,x                         ; volume and tone
         lda #$10
         ldy #$05
         and ($F0),y
-        bne l812D
+        bne may_restart                     ; leave the slide alone
         lda #$08
         ldy $FB
-        sta $06DB,y
+        sta sweep_off,y
         sta $4001,x                         ; no pitch slide
-        jmp l8137
-l812A:
+        jmp send_low
+; The triangle sounds when the loudness is not zero.
+triangle_out:
         sta $4000,x
-l812D:
+; See whether the pitch starts the note over.
+may_restart:
         ldy #$08
         lda ($F0),y
-        bpl l8160
-        and #$7F
+        bpl channel_done                    ; already sent
+        and #$7F                            ; mark it sent
         sta ($F0),y
-l8137:
+; Send the low byte of the pitch.
+send_low:
         ldy #$07
         lda ($F0),y
         sta $4002,x                         ; the low pitch byte
@@ -180,19 +213,21 @@ l8137:
         lda ($F0),y
         ora #$18
         ldy $FB
-        beq l8150
+        beq send_high
         cpy #$01
-        beq l8150
-        cmp $06D7,y
-        beq l8160
-l8150:
+        beq send_high
+        cmp period_hi,y
+        beq channel_done                    ; same pitch, so leave it
+; Send the high byte. That starts the note over.
+send_high:
         sta $4003,x                         ; the high pitch byte. Writing it restarts the note.
-        sta $06D7,y
-        lda $06DB,y
-        bne l8160
+        sta period_hi,y                     ; remember it
+        lda sweep_off,y
+        bne channel_done                    ; not sliding
         lda #$00
-        sta $06D7,y
-l8160:
+        sta period_hi,y                     ; sliding, so start it again next frame
+; This channel has been sent.
+channel_done:
         rts
 ; --- $8161  How loud this note is. Then the pitch wobbles.
 note_loudness:
@@ -201,32 +236,34 @@ note_loudness:
         tax
         and #$F0
         sta $F6
-        and #$20
-        beq l8174
-        lda #$0F
+        and #$20                            ; a rest
+        beq note_heard                      ; the note is heard
+        lda #$0F                            ; a rest plays nothing
         sta $F7
-        bne l81B4
-l8174:
+        bne mix_loud
+; Not a rest, so the note can fade.
+note_heard:
         txa
         and #$0F
         sta $F7
         ldy $F3
         dey
-        ldx $06C7,y
-        beq l81B4
+        ldx fade_left,y
+        beq mix_loud                        ; not fading
         dex
         txa
-        sta $06C7,y
-        bne l81B4
+        sta fade_left,y
+        bne mix_loud
         lda $F7
         clc
         adc #$01
         cmp #$0F
         sta $F7
-        bne l8198
+        bne keep_quiet
         lda #$00
-        sta $06CF,y
-l8198:
+        sta fade_load,y                     ; fully quiet, so the fade stops
+; Remember how quiet the note has gotten.
+keep_quiet:
         lda $F7
         ora $F6
         tax
@@ -237,27 +274,30 @@ l8198:
         sta $F7
         ldy $F3
         dey
-        ldx $06C7,y
-        bne l81B4
-        lda $06CF,y
-        sta $06C7,y
-l81B4:
+        ldx fade_left,y
+        bne mix_loud
+        lda fade_load,y
+        sta fade_left,y
+; The shape's loudness, minus how quiet this channel is.
+mix_loud:
         ldx $F2
-        lda $060A,x
+        lda loud_level,x
         clc
-        sbc $F7
-        bpl l81C0
+        sbc $F7                             ; minus how quiet this channel is
+        bpl store_loud                      ; still audible
         lda #$00
-l81C0:
+; That is how loud it plays. The tone stays.
+store_loud:
         ora $F6
         ldy #$06
         sta ($F0),y
         ldx $F3
         dex
-        lda $06AF,x
-        bne l81CF
+        lda wobble_on,x
+        bne do_wobble                       ; wobble around the note
         rts
-l81CF:
+; The pitch wobbles around the note.
+do_wobble:
         lda $F8
         asl
         tay
@@ -280,12 +320,13 @@ pitch_move:
 ; A little lower than the note.
 pitch_down:
         lda #$01
-l81F2:
+; This much lower than the note.
+lower_by:
         clc
-        adc $06B7,x
+        adc pitch_low,x
         ldy #$07
         sta ($F0),y
-        lda $06BF,x
+        lda pitch_high,x
         adc #$00
         iny
         sta ($F0),y
@@ -293,13 +334,13 @@ l81F2:
 ; Lower than the note.
 pitch_lower:
         lda #$02
-        jmp l81F2
+        jmp lower_by
 ; The note itself.
 pitch_note:
-        lda $06B7,x
+        lda pitch_low,x
         ldy #$07
         sta ($F0),y
-        lda $06BF,x
+        lda pitch_high,x
         iny
         sta ($F0),y
 ; The next step of the wobble.
@@ -308,30 +349,32 @@ wobble_step:
         clc
         adc #$01
         cmp #$08
-        bne l8222
+        bne wobble_next
         lda #$00
-l8222:
+; The next step of the wobble. After eight it starts over.
+wobble_next:
         sta $F8
         rts
 ; A little higher than the note.
 pitch_up:
-        lda $06B7,x
+        lda pitch_low,x
         clc
         sbc #$01
-l822B:
+; This much higher than the note.
+higher_by:
         ldy #$07
         sta ($F0),y
-        lda $06BF,x
+        lda pitch_high,x
         sbc #$00
         iny
         sta ($F0),y
         jmp wobble_step
 ; Higher than the note.
 pitch_higher:
-        lda $06B7,x
+        lda pitch_low,x
         clc
         sbc #$02
-        jmp l822B
+        jmp higher_by
 ; --- $8243  Start the sound in Y.
 start_sound:
         stx $F5
@@ -346,26 +389,28 @@ start_sound:
         lda sound_list+1,y
         sta $F1
         ldy #$00
-l825A:
+; The next track in this sound. $80 or higher ends the list.
+next_part:
         lda ($F0),y
-        bpl l8266
+        bpl set_track                       ; a track number
         ldx #$0F
         stx $4015                           ; turn the sound channels on
         ldx $F5
         rts
-l8266:
+; Point this track at its notes, and clear its wobble and fade.
+set_track:
         sta $F4
         lda #$08
         clc
         sbc $F4
         tax
         lda #$00
-        sta $06A7,x
-        sta $06AF,x
-        sta $06DA
-        sta $06D9
-        sta $06C7,x
-        sta $06CF,x
+        sta track_tune,x
+        sta wobble_on,x
+        sta period_hi+3                     ; forget the squares, so the new notes start
+        sta period_hi+2
+        sta fade_left,x
+        sta fade_load,x
         lda $F4
         asl
         asl
@@ -374,33 +419,34 @@ l8266:
         tax
         iny
         lda ($F0),y
-        sta $0627,x
+        sta track,x
         iny
         lda ($F0),y
-        sta $0628,x
+        sta track+1,x
         lda #$00
-        sta $062C,x
+        sta track+5,x                       ; no tone yet, and not quieted
         lda #$0F
-        sta $0630,x
+        sta track+9,x                       ; a called part returns to the end of this track
         lda $F4
         asl
         asl
         tax
-        lda #$01
-        sta $0607,x
+        lda #$01                            ; the notes are read this frame
+        sta note_left,x
         lsr
         ldx $F4
-l82AC:
+; This track is playing.
+mark_track:
         rol
         dex
-        bpl l82AC
-        ora $0606
-        sta $0606
+        bpl mark_track
+        ora channels
+        sta channels
         iny
-        bpl l825A
+        bpl next_part
 ; --- $82B9  Read the next notes.
 read_notes:
-        lda #$CF
+        lda #$CF                            ; not a rest, and not sliding
         ldy #$05
         and ($F0),y
         sta ($F0),y
@@ -411,28 +457,32 @@ read_notes:
         lda ($F0),y
         sta $F5
         dey
-l82CD:
+; The next byte of this track.
+read_byte:
         lda ($F4),y
-        bpl l82F2
+        bpl got_note
         iny
         cmp #$E0
-        bcc l82DB
+        bcc not_command                     ; below $E0: a length, or a skipped pair
         jsr run_command
-        bpl l82CD
-l82DB:
+        bpl read_byte
+; Not a command. $B0 and up skips itself and the next byte.
+not_command:
         cmp #$B0
-        bcc l82E2
+        bcc set_length
         iny
-        bne l82CD
-l82E2:
+        bne read_byte
+; How long the next note lasts.
+set_length:
         and #$3F
         tax
         lda note_length,x
         ldx $F2
-        sta $0607,x
-        sta $0608,x
-        bpl l82CD
-l82F2:
+        sta note_left,x
+        sta note_hold,x
+        bpl read_byte
+; A note. Remember where the track continues.
+got_note:
         iny
         pha
         tya
@@ -447,30 +497,33 @@ l82F2:
         pla
         ldx #$05
         cpx $F3
-        beq l8310
+        beq noise_note
         ldx #$01
         cpx $F3
-        bcc l831C
-l8310:
+        bcc tone_note
+; Noise. $10 is a rest.
+noise_note:
         cmp #$10                            ; a rest
         beq sound_rest
         sta $F4
         lda #$00
         sta $F5
-        beq l834A
-l831C:
+        beq keep_pitch
+; A square or the triangle. $0C in the low digit is a rest.
+tone_note:
         tax
         and #$0F
         cmp #$0C                            ; a rest, not a pitch
-        bne l832D
+        bne find_pitch
 ; A rest. The note is silent.
 sound_rest:
         ldy #$05
         lda #$20
         ora ($F0),y
         sta ($F0),y
-        bne l8366
-l832D:
+        bne note_set
+; The low digit picks the note.
+find_pitch:
         asl
         tay
         lda note_pitch,y
@@ -484,33 +537,36 @@ l832D:
         lsr
         lsr
         tax
-        beq l834A
-l8343:
+        beq keep_pitch
+; Once around for each step of the octave.
+octave_up:
         lsr $F5                             ; a higher octave
         ror $F4
         dex
-        bne l8343
-l834A:
+        bne octave_up
+; Store the pitch, plus how this track is tuned.
+keep_pitch:
         lda $F4
         ldx $F3
         dex
         clc
-        adc $06A7,x
+        adc track_tune,x
         ldy #$07
         sta ($F0),y
-        sta $06B7,x
+        sta pitch_low,x
         iny
         lda $F5
         adc #$00
-        ora #$80
+        ora #$80                            ; this pitch still has to be sent
         sta ($F0),y
-        sta $06BF,x
-l8366:
+        sta pitch_high,x
+; The note is ready. Its loudness starts over.
+note_set:
         ldx $F2
-        lda $0608,x
-        sta $0607,x
+        lda note_hold,x
+        sta note_left,x
         lda #$01
-        sta $0609,x
+        sta loud_left,x
         lda #$00
         ldy #$04
         sta ($F0),y
@@ -731,7 +787,7 @@ pitch_slide:
         and #$03
         tax
         lda #$00
-        sta $06DB,x
+        sta sweep_off,x
         rts
 ; The tone of this channel.
 set_tone:
@@ -749,8 +805,8 @@ set_tone:
 ; --- $84D7  Silence this channel.
 silence_channel:
         lda #$7F
-        and $0606
-        sta $0606
+        and channels
+        sta channels
         ldx $F3
         dex
         txa
@@ -762,7 +818,7 @@ silence_channel:
         lda #$30
         sta $4000,x
         pla
-        pla
+        pla                                 ; stop reading this track
         rts
 ; Tune this channel. A higher number is a little lower.
 tune_channel:
@@ -771,7 +827,7 @@ tune_channel:
         sty $F6
         ldx $F3
         dex
-        sta $06A7,x
+        sta track_tune,x
         ldy $F6
         rts
 ; The pitch starts to wobble.
@@ -779,7 +835,7 @@ start_wobble:
         ldx $F3
         dex
         lda #$01
-        sta $06AF,x
+        sta wobble_on,x
         lda #$00
         sta $F8
         rts
@@ -788,36 +844,38 @@ stop_wobble:
         ldx $F3
         dex
         lda #$00
-        sta $06AF,x
+        sta wobble_on,x
         rts
 ; A drum sample can play.
 samples_ok:
         lda #$00
-        sta $06DF
+        sta drum_wait
         rts
 ; --- $851C  Turn the sound channels on. A drum waits until it is allowed.
 channels_on:
         lda #$0F
         sta $4015
-        sta $06DF
+        sta drum_wait
         rts
 ; Play this drum if none is playing.
 drum_if_free:
-        lda $06DF
-        bne l8531
+        lda drum_wait
+        bne drum_busy
         lda $4015
         and #$10
-        beq l853A
-l8531:
+        beq start_drum                      ; no drum is playing
+; A drum is already going, or drums are still waiting.
+drum_busy:
         iny
         iny
         iny
         rts
 ; --- $8535  Play a drum sample.
 play_sample:
-        lda $06DF
-        bne l8531
-l853A:
+        lda drum_wait
+        bne drum_busy
+; Play this drum.
+start_drum:
         lda #$0F
         sta $4015
         lda ($F4),y
@@ -839,13 +897,15 @@ fade_speed:
         sty $F6
         ldx $F3
         dex
-        sta $06C7,x
-        sta $06CF,x
+        sta fade_left,x
+        sta fade_load,x
         ldy $F6
         rts
+; Skip the next byte.
 skip_byte:
         iny
         rts
+; Skip the next three bytes.
 skip_three:
         iny
         iny
@@ -875,83 +935,106 @@ note_length:
 
 ; --- $85B1  How loud a note is. Two bytes at a time: how many frames, then how loud.
 loudness:
-        .word l85DF
-        .word l85FF
-        .word l862B
+        .word fade_down
+        .word swell_fade
+        .word rise_hold
         .word l8635
-        .word l8637
+        .word fade_waver
         .word l8661
-        .word l8663
-        .word l8683
+        .word fade_longer
+        .word fade_slow
         .word l868D
-        .word l868F
+        .word fade_skip
         .word l86CB
         .word l86CF
         .word l86D3
         .word l86D7
         .word l86DB
-        .word l86EF
+        .word waver_down
         .word l86E7
         .word l86A1
-        .word l86B3
+        .word fade_uneven
         .word l86DF
         .word l86E3
         .word l86D5
         .word l86EB
-l85DF:
+; Fades from full to quiet, two frames a step, then stays quiet.
+fade_down:
         .byte $02, $0F, $02, $0E, $02, $0D, $02, $0C, $02, $0B, $02, $0A, $02, $09, $02, $08
         .byte $02, $07, $02, $06, $02, $05, $02, $04, $02, $03, $02, $02, $02, $01, $FF, $00
-l85FF:
+; Rises to full, holds, then fades out.
+swell_fade:
         .byte $01, $0B, $01, $0C, $01, $0D, $01, $0E, $0A, $0F, $01, $0E, $01, $0D, $07, $0C
         .byte $08, $0B, $09, $0A, $0A, $09, $0B, $08, $0C, $07, $0D, $06, $0D, $05, $0E, $06
         .byte $0F, $05, $10, $04, $11, $03, $12, $02, $14, $01, $FF, $00
-l862B:
+; Rises, stays loud, then goes quiet.
+rise_hold:
         .byte $01, $0C, $01, $0D, $01, $0E, $FF, $0F, $FF, $00
+; Stays quiet.
 l8635:
         .byte $FF, $00
-l8637:
+; Fades, then wavers between two levels, then stays quiet.
+fade_waver:
         .byte $06, $0F, $07, $0E, $08, $0D, $09, $0C, $0A, $0B, $0B, $0A, $18, $0B, $30, $0A
         .byte $05, $0B, $05, $0A, $06, $0B, $06, $0A, $07, $0B, $07, $0A, $08, $0B, $08, $0A
         .byte $09, $0B, $09, $0A, $0A, $0B, $0A, $0B, $FF, $00
+; Stays loud.
 l8661:
         .byte $FF, $0F
-l8663:
+; Fades out. Each step lasts a little longer.
+fade_longer:
         .byte $01, $0F, $02, $0E, $03, $0D, $04, $0C, $05, $0B, $06, $0A, $07, $09, $08, $08
         .byte $09, $07, $0A, $06, $0B, $05, $0C, $04, $0D, $03, $0E, $02, $0F, $01, $FF, $00
-l8683:
+; Fades a little, then stays quiet.
+fade_slow:
         .byte $0B, $0F, $18, $0E, $24, $0D, $36, $0C, $FF, $00
+; Stays quiet.
 l868D:
         .byte $FF, $00
-l868F:
+; Fades out, two frames a step, skipping every other level.
+fade_skip:
         .byte $02, $0F, $02, $0D, $02, $0B, $02, $09, $02, $07, $02, $05, $02, $03, $02, $01
         .byte $FF, $00
+; The same fade, one frame a step.
 l86A1:
         .byte $01, $0F, $01, $0D, $01, $0B, $01, $09, $01, $07, $01, $05, $01, $03, $01, $01
         .byte $FF, $00
-l86B3:
+; Fades out. The steps are uneven.
+fade_uneven:
         .byte $01, $0F, $02, $0D, $01, $0B, $02, $09, $02, $07, $02, $06, $02, $05, $01, $04
         .byte $01, $03, $01, $02, $01, $01, $FF, $00
+; Loud for four frames, then quiet.
 l86CB:
         .byte $04, $0F, $FF, $00
+; Loud for five frames, then quiet.
 l86CF:
         .byte $05, $0F, $FF, $00
+; Stays loud.
 l86D3:
         .byte $FF, $0F
+; Stays quiet.
 l86D5:
         .byte $FF, $00
+; Loud for eight frames, then quiet.
 l86D7:
         .byte $08, $0F, $FF, $00
+; Loud for seven frames, then quiet.
 l86DB:
         .byte $07, $0F, $FF, $00
+; Loud for two frames, then quiet.
 l86DF:
         .byte $02, $0F, $FF, $00
+; Loud for three frames, then quiet.
 l86E3:
         .byte $03, $0F, $FF, $00
+; Loud for six frames, then quiet.
 l86E7:
         .byte $06, $0F, $FF, $00
+; Loud for eleven frames, then quiet.
 l86EB:
         .byte $0B, $0F, $FF, $00
-l86EF:
+; The loudness wavers, and slowly falls.
+waver_down:
         .byte $10, $0B, $01, $0C, $01, $0B, $01, $0A, $01, $0B, $01, $0C, $01, $0B, $01, $0A
         .byte $01, $0B, $02, $0C, $02, $0B, $02, $0A, $02, $0B, $02, $0C, $02, $0B, $02, $0C
         .byte $02, $0D, $02, $0C, $02, $0B, $02, $0A, $02, $09, $02, $0A, $02, $0B, $02, $0C
@@ -965,15 +1048,15 @@ l86EF:
 ; --- $877D  Which sound each number plays.
 sound_list:
         .word sound_01
-        .word sound_02
+        .word sound_02                      ; A cutscene ends.
         .word sound_03                      ; Act I, stage 1. Act V, stage 2. Act VI, stage 3.
         .word sound_04                      ; Act II, stage 1. Act VI, stage 1.
         .word sound_05                      ; Act II, stage 2. Act IV, stage 1.
         .word sound_06                      ; Act I, stage 2. Act II, stage 3. Act III, stage 3. Act IV, stage 4. Act VI, stage 4.
         .word sound_07                      ; Act V, stage 1. Act V, stage 4. Act VI, stage 5.
-        .word sound_08
-        .word sound_08
-        .word sound_08
+        .word sound_08                      ; The thrown-weapon sound.
+        .word sound_08                      ; The thrown-weapon sound.
+        .word sound_08                      ; The thrown-weapon sound.
         .word sound_0B                      ; Act III, stage 2. Act VI, stage 2.
         .word sound_0C                      ; Act IV, stage 2.
         .word sound_08                      ; A thrown weapon ends.
@@ -994,13 +1077,13 @@ sound_list:
         .word sound_1C                      ; Bomberhead's sickle, and the last boss's fireballs.
         .word sound_1D
         .word snd_lightning                 ; Bloody Malth calls the lightning.
-        .word sound_08
+        .word sound_08                      ; The thrown-weapon sound.
         .word snd_gun                       ; The machine gunner fires.
         .word snd_crouch_shot               ; The crouching soldier fires.
         .word sound_22
         .word snd_lose_life                 ; He loses a life.
         .word snd_start                     ; Start is pressed.
-        .word sound_25                      ; Unused. That number stops the sound instead.
+        .word sound_25                      ; Unused. That number fades the sound out instead.
         .word sound_26
         .word sound_27
         .word sound_28
@@ -1021,9 +1104,9 @@ sound_list:
         .word sound_37
         .word sound_38
         .word sound_39
-        .word sound_08
+        .word sound_08                      ; The thrown-weapon sound.
         .word sound_3B
-        .word sound_08
+        .word sound_08                      ; The thrown-weapon sound.
         .word sound_3D
         .word sound_3E
         .word snd_hit                       ; An enemy is hit.
@@ -1031,8 +1114,8 @@ sound_list:
         .word sound_41                      ; Basaquer and Kelbeross.
         .word sound_42
         .word sound_43
-        .word sound_08
-        .word sound_08
+        .word sound_08                      ; The thrown-weapon sound.
+        .word sound_08                      ; The thrown-weapon sound.
         .word sound_46
         .word sound_47
         .word sound_48
@@ -1042,18 +1125,21 @@ sound_list:
         .word sound_4C
         .word sound_4D
         .word sound_4E
-        .word sound_02
-        .word sound_02
-        .word sound_02
-        .word sound_02
-        .word sound_02
-        .word sound_02
-        .word sound_02
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+        .word sound_02                      ; The cutscene-end sound.
+; Unused. That number fades the sound out instead.
 sound_25:
         .byte $04, $2A, $88, $FF
+; A cutscene ends.
 sound_02:
         .byte $00, $43, $88, $01, $43, $88, $02, $43, $88, $03, $43, $88, $04, $43, $88, $05
         .byte $43, $88, $06, $43, $88, $07, $43, $88, $FF
+; Act I, stage 1. Act V, stage 2. Act VI, stage 3.
 sound_03:
         .byte $04, $54, $88, $05, $58, $89, $02, $6D, $89, $07, $15, $8A, $06, $43, $88, $FF
         .byte $E0, $00, $84, $0C, $E2, $00, $83, $0C, $E3, $0A, $83, $0C, $86, $E9, $27, $89
@@ -1100,6 +1186,7 @@ sound_03:
         .byte $01, $10, $FB, $0F, $F0, $10, $02, $01, $EC, $FB, $0F, $F0, $10, $01, $10, $02
         .byte $01, $FB, $0F, $F4, $20, $01, $10, $02, $01, $EB, $08, $FB, $0F, $F4, $20, $01
         .byte $EC, $E8, $67, $8A
+; Act II, stage 1. Act VI, stage 1.
 sound_04:
         .byte $04, $18, $8B, $05, $DA, $8B, $02, $EF, $8B, $07, $9B, $8C, $06, $43, $88, $FF
         .byte $E0, $00, $84, $0C, $E2, $00, $83, $0C, $E3, $09, $0C, $86, $14, $24, $14, $24
@@ -1146,6 +1233,7 @@ sound_04:
         .byte $F0, $10, $10, $10, $EB, $03, $FB, $0F, $F4, $20, $10, $EC, $10, $FB, $0F, $F4
         .byte $20, $10, $10, $FB, $0F, $F0, $10, $10, $EB, $07, $FB, $0F, $F4, $20, $10, $EC
         .byte $E8, $C9, $8C
+; Act II, stage 2. Act IV, stage 1.
 sound_05:
         .byte $04, $DB, $8D, $05, $93, $8E, $02, $0C, $8F, $07, $15, $8F, $06, $39, $8F, $FF
         .byte $E0, $04, $84, $0C, $E2, $C0, $83, $0C, $E3, $0A, $0C, $ED, $A2, $0C, $0C, $0C
@@ -1174,8 +1262,10 @@ sound_05:
         .byte $0F, $F4, $20, $0C, $EB, $03, $FA, $0F, $F0, $10, $0C, $EC, $0C, $EB, $03, $FB
         .byte $0F, $F0, $10, $0C, $EC, $FB, $0F, $F4, $20, $0C, $FA, $0F, $F0, $10, $0C, $0C
         .byte $FA, $0F, $F0, $10, $0C, $E8, $3B, $8F
+; A thrown weapon ends.
 sound_08:
         .byte $01, $79, $8F, $03, $79, $8F, $FF
+; Act I, stage 2. Act II, stage 3. Act III, stage 3. Act IV, stage 4. Act VI, stage 4.
 sound_06:
         .byte $04, $BD, $8F, $05, $8A, $8F, $02, $63, $90, $07, $6C, $90, $06, $9D, $90, $FF
         .byte $E0, $05, $84, $0C, $E2, $C0, $83, $0C, $E3, $0C, $83, $0C, $ED, $8C, $22, $32
@@ -1217,6 +1307,7 @@ sound_06:
         .byte $F4, $20, $87, $0C, $0C, $EB, $02, $FB, $0F, $F4, $20, $0C, $EC, $EB, $02, $EB
         .byte $02, $FB, $0F, $F4, $20, $0C, $FB, $0F, $F4, $20, $0C, $0C, $EC, $EB, $02, $FB
         .byte $0F, $F4, $20, $0C, $EC, $EC, $E8, $B1, $90
+; Act V, stage 1. Act V, stage 4. Act VI, stage 5.
 sound_07:
         .byte $04, $03, $92, $05, $AA, $92, $02, $0E, $93, $07, $61, $93, $06, $A8, $93, $FF
         .byte $E0, $06, $84, $0C, $E2, $40, $83, $0C, $E3, $09, $0C, $ED, $8B, $1A, $1A, $1A
@@ -1261,6 +1352,7 @@ sound_07:
         .byte $06, $FB, $0F, $F0, $10, $92, $0C, $EC, $FB, $0F, $F4, $20, $86, $0C, $FB, $0F
         .byte $F4, $20, $8B, $0C, $EB, $05, $FB, $0F, $F4, $20, $86, $0C, $EC, $E8, $BC, $93
         .byte $FF
+; Act III, stage 2. Act VI, stage 2.
 sound_0B:
         .byte $04, $A4, $94, $05, $A7, $95, $02, $9A, $95, $07, $34, $96, $06, $4F, $96, $FF
         .byte $E0, $04, $84, $0C, $E2, $C0, $83, $0C, $E3, $0B, $0C, $ED, $8A, $24, $34, $32
@@ -1299,6 +1391,7 @@ sound_0B:
         .byte $02, $FB, $0F, $F0, $10, $8A, $0C, $EC, $98, $0C, $EB, $02, $FB, $0F, $F4, $20
         .byte $8A, $0C, $EC, $98, $0C, $EB, $08, $FB, $0F, $F4, $20, $85, $0C, $EC, $E8, $66
         .byte $96
+; Act IV, stage 2.
 sound_0C:
         .byte $04, $E5, $96, $05, $E2, $97, $02, $6C, $98, $07, $D9, $98, $06, $3A, $99, $FF
         .byte $E0, $04, $84, $0C, $E2, $40, $83, $0C, $E3, $0A, $0C, $ED, $A2, $0C, $E9, $FC
@@ -1449,6 +1542,7 @@ sound_2A:
         .byte $20, $8B, $19, $24, $E0, $0C, $22, $FF, $E0, $11, $E3, $05, $86, $00, $01, $02
         .byte $EB, $02, $FB, $0F, $F0, $10, $8B, $01, $EC, $02, $FB, $0F, $F4, $20, $01, $FB
         .byte $0F, $F0, $10, $01, $EB, $04, $FB, $0F, $F4, $20, $02, $EC, $FF
+; Act VI, stage 4.
 sound_2B:
         .byte $04, $CC, $9F, $05, $30, $A0, $02, $3C, $A0, $07, $61, $A0, $06, $76, $A0, $FF
         .byte $E0, $00, $E2, $40, $E3, $09, $E5, $01, $87, $33, $0C, $33, $0C, $30, $30, $8C
@@ -1572,6 +1666,7 @@ sound_2F:
         .byte $04, $FB, $0F, $F4, $20, $97, $0C, $FB, $0F, $F0, $10, $8F, $0C, $EB, $02, $FB
         .byte $0F, $F4, $20, $89, $0C, $EC, $EB, $04, $FB, $0F, $F4, $20, $8F, $0C, $EC, $EC
         .byte $FF
+; Act IV, stage 3.
 sound_30:
         .byte $04, $F9, $A6, $05, $13, $A7, $02, $1F, $A7, $07, $63, $A7, $06, $89, $A7, $FF
         .byte $E0, $06, $E2, $C0, $E3, $09, $8E, $24, $25, $24, $1B, $24, $25, $24, $1B, $23
@@ -1592,6 +1687,7 @@ sound_30:
         .byte $10, $8E, $0C, $EC, $FB, $0F, $F4, $20, $0C, $FB, $0F, $F0, $10, $0C, $EC, $EB
         .byte $02, $FB, $0F, $F0, $10, $0C, $EC, $FB, $0F, $F4, $20, $0C, $EB, $02, $FB, $0F
         .byte $F4, $20, $88, $0C, $EC, $E8, $E2, $A7
+; Act V, stage 3.
 sound_31:
         .byte $04, $21, $A8, $05, $9F, $A8, $02, $AA, $A8, $07, $0E, $A9, $06, $21, $A9, $FF
         .byte $E0, $04, $E2, $C0, $E3, $0B, $ED, $87, $28, $27, $E9, $62, $A8, $E9, $72, $A8
@@ -1682,6 +1778,7 @@ sound_34:
         .byte $10, $0C, $FB, $0F, $F4, $20, $0C, $0C, $EC, $FB, $0F, $F0, $10, $0C, $0C, $FB
         .byte $0F, $F4, $20, $0C, $FB, $0F, $F0, $10, $0C, $FB, $0F, $F4, $20, $8A, $0C, $FB
         .byte $0F, $F4, $20, $0C, $0C, $EB, $05, $FB, $0F, $F4, $20, $0C, $EC, $FF
+; Act III, stage 1.
 sound_2D:
         .byte $04, $78, $AD, $05, $AB, $AD, $02, $E1, $AD, $07, $FE, $AD, $06, $0A, $AE, $FF
         .byte $E0, $04, $E2, $40, $E3, $0A, $ED, $8A, $20, $25, $27, $90, $28, $8A, $27, $25
@@ -1860,12 +1957,14 @@ snd_one_up:
         .byte $07, $0C, $82, $E4, $86, $20, $E4, $86, $24, $E4, $86, $27, $E4, $86, $30, $E4
         .byte $86, $34, $E4, $86, $37, $E4, $86, $39, $8C, $40, $F8, $FF, $83, $0C, $E5, $01
         .byte $82, $0C, $E8, $3E, $B7
+; Health, or a lantern breaking.
 sound_15:
         .byte $00, $73, $B7, $01, $A6, $B7, $FF, $F9, $E0, $00, $81, $0C, $E2, $80, $0C, $E3
         .byte $07, $0C, $81, $10, $11, $14, $15, $18, $19, $20, $21, $24, $25, $28, $29, $30
         .byte $31, $34, $35, $38, $39, $40, $41, $44, $45, $48, $49, $50, $51, $54, $55, $58
         .byte $59, $60, $61, $64, $65, $68, $89, $69, $F8, $FF, $83, $0C, $E0, $00, $83, $0C
         .byte $E2, $80, $0C, $E3, $0C, $0C, $E8, $7E, $B7
+; While the Invincible Fire-Wheel burns.
 sound_16:
         .byte $01, $B9, $B7, $FF, $81, $0C, $E0, $00, $E2, $40, $0C, $E3, $03, $81, $37, $40
         .byte $0C, $37, $40, $0C, $37, $40, $FF
@@ -1879,6 +1978,7 @@ snd_fire_wheel:
         .byte $0F, $FF, $81, $00, $01, $02, $03, $04, $05, $04, $05, $06, $05, $06, $07, $06
         .byte $07, $08, $07, $08, $09, $08, $09, $0A, $09, $0A, $0B, $0A, $0B, $0C, $0B, $0C
         .byte $0D, $0C, $0D, $0E, $0D, $0E, $EA
+; The spinning sword, the stone man's ring, and the Masked Devil calling fireballs.
 sound_1A:
         .byte $03, $2E, $B8, $FF, $81, $10, $E0, $00, $E3, $00, $81, $08, $09, $0A, $0B, $0F
         .byte $0E, $0D, $0C, $0B, $0A, $09, $08, $07, $06, $05, $04, $03, $04, $03, $02, $03
@@ -1886,6 +1986,7 @@ sound_1A:
 snd_beep:
         .byte $01, $55, $B8, $FF, $81, $0C, $E0, $05, $E2, $80, $0C, $E3, $00, $83, $2B, $82
         .byte $0C, $83, $2B, $FF
+; Bomberhead's sickle, and the last boss's fireballs.
 sound_1C:
         .byte $01, $6C, $B8, $03, $A0, $B8, $FF, $81, $0C, $E0, $00, $E2, $40, $81, $0C, $E3
         .byte $07, $81, $00, $10, $20, $01, $11, $21, $03, $13, $23, $05, $15, $25, $24, $22
@@ -1906,6 +2007,7 @@ snd_gun:
         .byte $01, $28, $B9, $03, $3A, $B9, $FF, $81, $0C, $E0, $11, $E2, $00, $0C, $E3, $04
         .byte $EB, $06, $81, $00, $12, $82, $0C, $EC, $FF, $81, $10, $E0, $11, $10, $E3, $08
         .byte $EB, $06, $81, $0C, $04, $82, $10, $EC, $FF
+; Jaquio fires.
 sound_0E:
         .byte $03, $4E, $B9, $FF, $81, $10, $E0, $00, $E3, $00, $81, $0A, $0B, $0C, $0D, $0C
         .byte $0B, $0A, $09, $08, $FF
@@ -1974,6 +2076,7 @@ snd_hit:
 snd_boss_explode:
         .byte $04, $43, $88, $05, $43, $88, $02, $43, $88, $07, $0C, $BA, $06, $43, $88, $03
         .byte $43, $88, $FF
+; Basaquer and Kelbeross.
 sound_41:
         .byte $00, $1F, $BC, $03, $30, $BC, $FF, $E3, $00, $86, $E4, $85, $15, $E3, $05, $E4
         .byte $85, $14, $E3, $0A, $E4, $85, $13, $FF, $E0, $06, $E3, $03, $81, $0F, $05, $0E

@@ -93,13 +93,56 @@ stage 5 (`$0B`). When that one finishes, the game resets.
 If A, B, Select, Down, and Left are held when Start skips the opening,
 the sound test runs. Bank 06 shows a number. Down lowers it, Up raises
 it, A plays that number, B plays a sound, and Start resets the game.
-If those buttons are not held, another script plays. Start during that
-one continues, and the game starts. If that script finishes on its own,
-the opening plays again.
+If those buttons are not held, script `$0D` plays. Start during that
+one runs script `$0C`, and the game starts. If script `$0D` finishes
+on its own, the opening plays again.
+
+A step of a script is a wait, then commands, until `$FF`. The wait is
+two bytes. `$FFFF` ends the script. The top two bits of a command pick
+the group. The low six bits pick which one. The first group flashes
+the picture gray, waits a frame, moves or stops the camera, fades,
+chooses the screens, plays a sound, draws tiles, chooses the pictures,
+places one moving picture, tints the picture, sets the scroll, picks
+colors, plays a shot, or turns colors black. `$40` fills the screens
+and draws on the background. `$80` places the moving pictures, or
+hides them. `$C0` starts a line. The low six bits are how long each
+letter waits.
+
+The picture can scroll, and it can be split into bands that scroll on
+their own. A sprite near the top is the split. Bit 7 of the camera
+move switches the pictures below that split. A fade is four shades.
+The gray flash flips every other frame, then the color comes back.
 
 Bank 06 also draws the pictures on the cutscene background, at `picture_at`
-(`$E4`). It holds a copy of the lines, through the staff roll. The copy
-a cutscene reads, and the reader, are in bank 05.
+(`$E4`). `picture_list` (`$82D4`) is the 65 pictures. A picture's first
+byte picks the background tiles and which of three block sets to use.
+`picture_parts` (`$8B71`) points at those sets: tiles, then colors.
+The next byte is how many across and how many down. Each block is a
+patch of 4 by 2 tiles. The title is `title_ninja`, `presents`, and
+`push_start`. The opening field is `moon_field`, `grass`, `streaks`,
+and `moon_grass`, then `ryu_bust` and `the_sword`. Ryu's eyes are
+`eyes_open`, `eyes_hard`, `eyes_closing`, and `eyes_shut`. Irene Lew
+is `irene_gun` and `irene_profile`, and later `irene_held`. Walter
+Smith is `walter` and `smith_back`. The Jaquio is `jaquio_face`. Malth
+is `malth`, with `night_sky`. The masked devil is `devil_mask`. Ryu's
+father is `father` and `father_wakes`. The cell is `cell_door` and
+`cell_open`. The landscapes are `field_trees`, `temple_field`,
+`temple_moon`, `forest_top`, `great_moon`, and `jungle`. `broken_wall`,
+`stone_wall`, `roof_hole`, `cia_agents`, `foster_office`, `temple_hall`,
+and `temple_demon` are the rooms. `blank_strip`, `blank_purple`, and
+`blank_gray` cover a portrait. Also in the list: `ryu_runs` and
+`title_logo` in the corner, `demon_statue`, `gold_statue`, and
+`small_statue`, `demon_claw`, `three_faces`, `fathers_fight`,
+`gold_armor`, `looking_down`, `red_close`, `office_wall`,
+`office_stripes`, `irene_held_close`, `ryu_profile`, `ryu_face`,
+`ryu_back`, `ryu_edge`, `a_hand`, and `leaves`. `the_end` closes the
+last scene. `bloody_hall` and `push_start_spare` are pictures no
+script draws. From `$A2A2` through
+`$A7D8` the bytes match the end of bank 04's scripts, and bank 04 is
+the copy that runs. `song_copy` (`$B2BE`) is the same songs as bank
+03. This bank never plays them. `$BE78` is empty, and `$BEDD` is more
+of those songs. The lines in this bank, through the staff roll, are a
+copy. The copy a cutscene reads, and the reader, are in bank 05.
 
 Every frame, before the script steps, `move_actors` (`$8003`) moves up
 to four pictures. After the step, `draw_actors` (`$8006`) draws them.
@@ -109,8 +152,12 @@ Sprite 0 stays the split. The other sprites start at `sprite_i`
 
 The four pictures stand in slots of 16 bytes at `$0340`. `actor_move`
 is how that picture moves: it stays, it slides, it walks a path from
-`picture_path` (`$84AB`), or it slides and its speed changes. `actor_x`
-(`$0342`) is where it stands and `actor_y` (`$0344`) is how high. Bit 6
+`picture_path` (`$84AB`), or it slides and its speed changes.
+`slide_speed` (`$8B04`) is the slide. `path_wait` (`$88E3`) is how
+long it waits on the first place. `speed_change` (`$8B6C`) is the
+slide whose speed changes. `pose_wait` (`$88CF`) is how long the
+first pose stays. `actor_x` (`$0342`) is where it stands and
+`actor_y` (`$0344`) is how high. Bit 6
 of `actor_flags` (`$0345`) faces it left. Bit 7 of `actor_pic` (`$0348`)
 means the pose comes from `pose_list` (`$8408`); otherwise that byte is
 one picture from `actor_pics` (`$84B9`). `pose_time` (`$92C3`) is how
@@ -120,7 +167,11 @@ low half runs out.
 Irene Lew is pose list 1, pictures `$17` and `$18`, and list `$0A`,
 pictures `$23` and `$24`.
 Walter Smith is list 2, pictures `$19` and `$1A`. The Jaquio is list
-`$08`, pictures `$26` and `$27`.
+`$08`, pictures `$26` and `$27`. One path steps to the right. The
+other steps to the left.
+
+Foster says he is from the CIA. Later he orders the demon statues
+stolen, and Ryu killed. Irene Lew gives her name after the temple.
 
 A command of `$C0` or higher in the script starts a line. The low 6
 bits are how many frames each letter waits (`line_speed`, `$0316`).

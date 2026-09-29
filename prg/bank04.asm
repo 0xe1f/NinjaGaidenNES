@@ -2,27 +2,82 @@
 ; The cutscenes. Reset calls this with 0. When an area ends,
 ; bank 07 calls it with that area's cutscene number.
 
+scene          = $0300 ; which cutscene is playing
+wait_lo        = $0301 ; frames left in this wait
+wait_hi        = $0302 ; the rest of that wait. Each one is 256 frames
+script_done    = $0303 ; the script has finished
+script_at      = $0304 ; which byte of the script
+shade_left     = $0305 ; shades left in the fade. 0 means it is not fading
+shade_wait     = $0306 ; frames until the next shade
+fade_mode      = $0307 ; bit 7 jumps several shades, and starts from black
+fade_which     = $0308 ; bit 7 starts at the first color. Bit 6 does not stop after the background
+shade_load     = $0309 ; the wait between shades, used again
+flash_left     = $030A ; gray flashes left. 0 means it is not flashing
+flash_time     = $030B ; frames until the picture flips to gray or back
+shot_on        = $030C ; the picture is moving through a shot
+shot_i         = $030D ; which shot
+shot_delay     = $030E ; frames before the next place, used again
+shot_left      = $030F ; frames left before that place
+shot_at        = $0310 ; where the shot is in its list
+tile_base      = $0311 ; where the tiles are drawn
+tile_base_hi   = $0312 ; the rest of that place
+band_count     = $031D ; how many bands the picture is split into. 0 means none
+band_lo        = $031E ; how far this band is scrolled
+band_hi        = $031F ; the rest, and which screen
+band_hold      = $0326 ; how long to wait before the next band
+band_hold_hi   = $0327 ; the rest of that wait
+band_speed     = $032E ; how fast this band scrolls
+band_speed_hi  = $032F ; the rest of that speed
+bg_left        = $0336 ; background pictures still to draw
+actor_left     = $033C ; moving pictures still to place
+camera_flags   = $0384 ; bit 7 switches the pictures at the split
+which_screen   = $0385 ; the second screen. 0 is the usual one
+split_on       = $0386 ; the sprite that splits the picture is in use
+colors_due     = $0388 ; load the colors when this step ends
+split_chr      = $038A ; pictures for the lower part of the screen
+backdrop       = $038B ; the background color
+palette_set    = $038C ; which colors. Four for the background, then four for the sprites
+color_packet   = $03A0 ; the colors, ready to send. 32 of them, at $3F00
+colors         = $03A3 ; those colors
+chr_bank1      = $59   ; background patterns
+script_ptr     = $0A   ; the script being read
+tile_ptr       = $E8   ; the tiles being copied
+pad_last       = $EA   ; buttons held on the previous frame
+scroll_x_lo    = $A0   ; the fraction under the sideways scroll
+scroll_x       = $A1   ; how far the picture is scrolled sideways
+scroll_y_lo    = $A6   ; the fraction under the up and down scroll
+scroll_y       = $A7   ; how far it is scrolled up and down
+scroll_dx_lo   = $E0   ; the fraction under the sideways speed
+scroll_dx      = $E1   ; how fast it scrolls sideways
+scroll_dy_lo   = $E2   ; the fraction under the up and down speed
+scroll_dy      = $E3   ; how fast it scrolls up and down
+sprites        = $0200 ; where the sprites are
+
 ; --- $8000  Play the cutscene in A. Reset passes 0, the opening. An area passes its own number.
 play_cutscene:
         sei
         cld
         pha
 ; The call list at the end of this bank points here, inside the setup.
-c8003:
+; Clear the cutscene's memory.
+clear_scene:
         lda #$00
         tax
-c8006:
-        sta $0300,x
-c8009:
+; One byte of that memory.
+zero_byte:
+        sta scene,x
+; The next byte. All 256 of them.
+zero_next:
         dex
-        bne c8006
-c800C:
+        bne zero_byte
+; The scene number goes back into the first byte.
+scene_byte:
         pla
-        sta $0300
+        sta scene
         lda #$3F
-        sta $03A2
+        sta color_packet+2                  ; the colors live at $3F00
         lda #$20
-        sta $03A0
+        sta color_packet                    ; 32 of them
         lda #$B0
         sta z:ppuctrl_shadow                ; NMI on, 8x16 sprites, background patterns at $1000
         lda #$1E
@@ -32,25 +87,25 @@ c800C:
         sta z:nmi_latch
         jsr wait_frame
         lda #$C0
-        jsr black_colors
+        jsr black_colors                    ; every color turns black
         jsr wait_frame
         lda #$04
         sta z:prg_bank                      ; this bank
         lda #$0F
-        sta $038B
+        sta backdrop                        ; black
         lda #$10
-        sta $56                             ; CHR bank 0
-        sta $59                             ; CHR bank 1
-        sta $038A
+        sta z:chr_bank0                     ; sprite tiles
+        sta chr_bank1                       ; background tiles
+        sta split_chr                       ; and below the split
 ; --- $8046  Show the cutscene.
 show_cutscene:
         jsr fill_screens
         jsr hide_sprites
-        lda $0300
+        lda scene
         bne run_script
-        jsr run_script
-        lda $0303
-        bne show_cutscene                           ; the opening finished, so play it again
+        jsr run_script                      ; 0 is the opening
+        lda script_done
+        bne show_cutscene                   ; it finished, so play it again
         lda z:pad_cur
         and #$E6                            ; A, B, Select, Down, and Left
         cmp #$E6                            ; all of them held
@@ -58,128 +113,132 @@ show_cutscene:
 ; --- $8061  Those five were held when Start skipped the opening.
 sound_test:
         lda #$00
-        sta $038C
-        sta $038E
-        sta $038F
+        sta palette_set
+        sta palette_set+2
+        sta palette_set+3
         lda #$9A
-        sta $0390
+        sta palette_set+4                     ; the sprites
         lda #$53
-        sta $038D
+        sta palette_set+1
         lda #$0F
-        sta $038B
+        sta backdrop                        ; black
         lda #$20
-        sta z:picture_at_hi                ; where this picture goes
+        sta z:picture_at_hi                 ; where this picture goes
         lda #$C0
         sta z:picture_at
         lda #$1C
-        ldx #$80
+        ldx #$80                            ; draw it from bank 06
         jsr call_bank
         lda #$21
-        sta z:picture_at_hi                ; where this picture goes
+        sta z:picture_at_hi                 ; where this picture goes
         lda #$E4
         sta z:picture_at
         lda #$3E
-        ldx #$80
+        ldx #$80                            ; and the second picture
         jsr call_bank
         lda #$C0
-        jsr load_colors
+        jsr load_colors                     ; background and sprites
         jsr send_colors
         jsr wait_frame
         lda #$06
         sta a:prg_bank
-        ldx #$81
-        jmp call_bank                       ; the sound test
-; --- $80AE  Start skipped the opening.
+        ldx #$81                            ; the sound test, in bank 06
+        jmp call_bank
+; --- $80AE  Start skipped the opening, and those five were not held.
 opening_skipped:
         lda #$0D
         jsr run_script
-        lda $0303
-        bne show_cutscene                           ; that script finished, so play the opening again
+        lda script_done
+        bne show_cutscene                   ; that script finished, so play the opening again
         lda #$0C
-        jsr run_script
+        jsr run_script                      ; Start skipped it, so the game can start
         rts
 ; --- $80BE  Play one script.
 run_script:
         asl
         tax
         lda script_list,x
-        sta $0A
+        sta script_ptr
         lda script_list+1,x
-        sta $0B
+        sta script_ptr+1
         ldy #$00
-        sty $0304
-        sty $0303
-        sty $0301
-        sty $0302
-        sty $0305
-        sty $030A
-        sty $0313
-        sty $030C
-        sty $031D
+        sty script_at
+        sty script_done
+        sty wait_lo
+        sty wait_hi
+        sty shade_left
+        sty flash_left
+        sty line_on
+        sty shot_on
+        sty band_count
         lda #$0F
-        jsr split_sprite
+        jsr split_sprite                    ; the split sits near the top
 ; --- $80EC  One frame of the script.
 script_frame:
         jsr cutscene_frame
-        lda $0305
-        beq c80F7                           ; not fading
+        lda shade_left
+        beq check_flash                     ; not fading
         jsr darken_colors
-c80F7:
-        lda $030A
-        beq c80FF                           ; not flashing
+; The fade ran, or there was none.
+check_flash:
+        lda flash_left
+        beq check_line                      ; not flashing
         jsr gray_flash
-c80FF:
-        lda $0313
-        beq c8109
-        ldx #$43
+; A line is showing.
+check_line:
+        lda line_on
+        beq check_shot
+        ldx #$43                            ; read it
         jsr call_bank
-c8109:
-        lda $030C
-        beq c8111                           ; not moving through a shot
+; The picture may be moving through a shot.
+check_shot:
+        lda shot_on
+        beq move_pictures                   ; it is not
         jsr scroll_step
-c8111:
-        ldx #$41
+; Move the pictures, do the next step, and draw them.
+move_pictures:
+        ldx #$41                            ; move the pictures
         jsr call_bank
         jsr step_script
-        ldx #$42
+        ldx #$42                            ; draw them
         jsr call_bank
         jsr hide_from
-        lda $0300
+        lda scene
         cmp #$0B                            ; Act VI, stage 5 is not skipped
-        beq c812F
+        beq script_ended
         jsr buttons_pressed
         and #$10                            ; Start
         bne end_cutscene
 ; See if the script has finished.
-c812F:
-        lda $0303
+script_ended:
+        lda script_done
         beq script_frame
-        lda $0300
+        lda scene
         cmp #$0B                            ; Act VI, stage 5
         bne end_cutscene
         jmp $FFDA                           ; the game ends
 ; --- $813E  The cutscene is over.
 end_cutscene:
         lda #$C0
-        jsr black_colors
+        jsr black_colors                    ; every color turns black
         lda #$02
-        sta sound                           ; play a sound
+        sta sound                           ; a sound plays when a cutscene ends
         jsr wait_frame
         lda #$00
         sta z:nmi_latch
-        sta $A1
-        sta $A7
-        sta $0305
-        sta $030A
-        sta $0313
-        sta $030C
+        sta scroll_x
+        sta scroll_y
+        sta shade_left
+        sta flash_left
+        sta line_on
+        sta shot_on
         bit PPUSTATUS
-        sta PPUSCROLL
+        sta PPUSCROLL                       ; the picture sits at the top left
         sta PPUSCROLL
         lda #$1E
         jsr write_control
         lda z:ppuctrl_shadow
-        and #$FC
+        and #$FC                            ; the first screen
         sta PPUCTRL
         sta z:ppuctrl_shadow
         jsr fill_screens
@@ -187,65 +246,70 @@ end_cutscene:
         rts
 ; --- $817D  Hide every sprite but the first.
 hide_sprites:
-        ldx #$04
-        bne c8186
+        ldx #$04                            ; leave the split
+        bne hide_at
 ; --- $8181  Hide sprites from this one on.
 hide_from:
-        ldx $033F
-        beq c8191
-c8186:
-        lda #$F8
-c8188:
-        sta $0200,x
+        ldx sprite_i
+        beq sprites_hidden                  ; there are none
+; Hide this sprite.
+hide_at:
+        lda #$F8                            ; below the picture
+; The next sprite.
+hide_next:
+        sta sprites,x
         inx
         inx
         inx
         inx
-        bne c8188
-c8191:
+        bne hide_next
+sprites_hidden:
         rts
 ; --- $8192  Fill the screens.
 fill_screens:
         jsr picture_off
-        lda #$20
+        lda #$20                            ; the first screen
         jsr fill_screen
         lda #$24
-        ldy $0385
-        beq c81A3                           ; the usual second screen
+        ldy which_screen
+        beq fill_second                     ; the usual second screen
         lda #$28                            ; the other screen
-c81A3:
+; The second screen.
+fill_second:
         jsr fill_screen
         jsr picture_on
         rts
-; --- $81AA  Fill one screen.
+; --- $81AA  Fill one screen with the empty tile.
 fill_screen:
         bit PPUSTATUS
         sta PPUADDR
         lda #$00
         sta PPUADDR
-        lda #$FA
+        lda #blank_tile                     ; the empty tile
         ldx #$04
         ldy #$C0
-c81BB:
+; One empty tile. 960 of them, the whole screen.
+fill_byte:
         sta PPUDATA
         dey
-        bne c81BB
+        bne fill_byte
         dex
-        bne c81BB
+        bne fill_byte
         ldy #$40
-        lda #$00
-c81C8:
+        lda #$00                            ; the first colors
+; The colors for that screen.
+fill_attr:
         sta PPUDATA
         dey
-        bne c81C8
+        bne fill_attr
         rts
 ; --- $81CF  Hide the picture.
 picture_off:
         lda z:ppuctrl_shadow
-        and #$7F
+        and #$7F                            ; NMI off, so the fill is not seen
         sta PPUCTRL
         lda z:ppumask_shadow
-        and #$E6
+        and #$E6                            ; background and sprites off
         sta PPUMASK
         rts
 ; --- $81DE  Show the picture.
@@ -255,7 +319,7 @@ picture_on:
         lda z:ppumask_shadow
         sta PPUMASK
         rts
-; --- $81E9  Write the cartridge control.
+; --- $81E9  Write the cartridge control. One bit at a time.
 write_control:
         sta MMC1_CTRL
         lsr
@@ -268,157 +332,171 @@ write_control:
         sta MMC1_CTRL
         rts
 ; --- $81FD  Turn these colors black.
+; Bit 6 starts at the last color. Bit 7 does not stop before the background.
 black_colors:
         sta $0339
         ldy #$1F
-        lda #$0F
+        lda #$0F                            ; black
         bit $0339
-        bvs c820B
-        ldy #$10
-c820B:
-        sta $03A3,y
+        bvs write_black                     ; start at the last color
+        ldy #$10                            ; start at the sprites
+; This color turns black.
+write_black:
+        sta colors,y
         bit $0339
-        bmi c8217
+        bmi next_black                      ; keep going
         cpy #$11
-        beq c821A
-c8217:
+        beq black_sent                      ; stop before the background
+; The next color, down toward the first.
+next_black:
         dey
-        bpl c820B
-c821A:
+        bpl write_black
+black_sent:
         jsr send_colors
         rts
 ; --- $821E  Send the tiles to the screen.
 send_tiles:
-        lda $0387
-        bne c822E
+        lda tiles_handed
+        bne tiles_sent                      ; this frame already sent them
         lda #$03
-        sta $2C
-        lda #$C3
+        sta z:packet+1
+        lda #<tile_buf
         sta z:packet
-        inc $0387
-c822E:
+        inc tiles_handed
+tiles_sent:
         rts
 ; --- $822F  Send the colors to the screen.
+; The tiles wait until the next frame.
 send_colors:
         lda #$03
-        sta $2C
-        lda #$A0
+        sta z:packet+1
+        lda #<color_packet
         sta z:packet
-        inc $0387
+        inc tiles_handed
         rts
 ; --- $823B  One frame of the cutscene.
+; Wait until NMI, then scroll.
 cutscene_frame:
         ldx z:nmi_latch
         beq cutscene_frame
         inx
-        stx z:nmi_latch
-        stx $03C3
-        stx $0395
-        stx $0387
-        lda $0386
-        beq c825A
-; Wait for the sprite that splits the picture.
-c8250:
+        stx z:nmi_latch                     ; NMI stored $FF. This clears it
+        stx tile_buf                        ; and clears this frame's tiles
+        stx packet_i
+        stx tiles_handed
+        lda split_on
+        beq frame_scroll                    ; the picture is not split
+; Wait until the split has passed.
+split_clear:
         bit PPUSTATUS
-        bvs c8250
-c8255:
+        bvs split_clear
+; Wait until the split is reached again.
+split_hit:
         bit PPUSTATUS
-        bvc c8255
-c825A:
+        bvc split_hit
+; Scroll each band, then the whole picture.
+frame_scroll:
         ldx #$00
-        lda $031D
-        bne c8262
-        rts
-c8262:
+        lda band_count
+        bne do_bands
+        rts                                 ; the picture is not split into bands
+; How many bands are left.
+do_bands:
         sta $00
         sta $01
-c8266:
+; One band.
+scroll_one_band:
         jsr scroll_band
-        ldy $0326,x
-        lda $0327,x
-; Wait, so the next band is lower.
-c826F:
+        ldy band_hold,x
+        lda band_hold_hi,x
+; Wait, so the next band is lower on the screen.
+burn_band:
         dey
-        bne c826F
+        bne burn_band
         sec
         sbc #$01
-        bcs c826F
+        bcs burn_band
         inx
         inx
         dec $00
-        bne c8266
-        bit $0384
-        bpl c8292
+        bne scroll_one_band
+        bit camera_flags
+        bpl add_speeds                      ; the pictures stay
         lda #$22
         sta PPUADDR
         lda #$80
-        sta PPUADDR
-        lda $038A
-        jsr set_chr1
-c8292:
+        sta PPUADDR                         ; the split is at this row
+        lda split_chr
+        jsr set_chr1                        ; pictures for the lower part
+; Add each band's speed to how far it is scrolled.
+add_speeds:
         ldx #$00
-c8294:
+; The next band. The low byte clears the carry.
+next_band_pair:
         clc
-c8295:
-        lda $031E,x
-        adc $032E,x
-        sta $031E,x
+; One byte of that scroll. The high byte keeps the carry.
+add_band_byte:
+        lda band_lo,x
+        adc band_speed,x
+        sta band_lo,x
         inx
         txa
         and #$01
-        bne c8295
+        bne add_band_byte
         dec $01
-        bne c8294
-        lda $E0
+        bne next_band_pair
+        lda scroll_dx_lo
         clc
-        adc $A0
-        sta $A0
-        lda $E1
-        adc $A1
-        sta $A1
+        adc scroll_x_lo
+        sta scroll_x_lo
+        lda scroll_dx
+        adc scroll_x
+        sta scroll_x
         lda #$00
-        rol
-        bit $E1
-        bpl c82BE
-        eor #$01
-c82BE:
+        rol                                 ; crossed 256 pixels
+        bit scroll_dx
+        bpl nametable_bit
+        eor #$01                            ; scrolling left flips the other way
+; The other screen, when the scroll crosses it.
+nametable_bit:
         eor z:ppuctrl_shadow
         sta z:ppuctrl_shadow
-        lda $E2
+        lda scroll_dy_lo
         clc
-        adc $A6
-        sta $A6
-        lda $E3
-        adc $A7
+        adc scroll_y_lo
+        sta scroll_y_lo
+        lda scroll_dy
+        adc scroll_y
         cmp #$F0                            ; past the bottom of the screen
-        bcc c82DD
-        bit a:$E3
-        bmi c82DB
+        bcc store_scroll_y
+        bit a:scroll_dy
+        bmi y_wrap_neg                      ; scrolling up
         clc
-        adc #$10
-        bcs c82DD
-c82DB:
+        adc #$10                            ; skip the hidden rows
+        bcs store_scroll_y
+; Scrolling up. Skip those rows the other way.
+y_wrap_neg:
         sbc #$10
-c82DD:
-        sta $A7
+store_scroll_y:
+        sta scroll_y
         rts
 ; --- $82E0  Scroll one band of the picture.
 scroll_band:
         bit PPUSTATUS
         clc
-        lda $031E,x
-        bpl c82EA
-        sec
-c82EA:
-        lda $031F,x
+        lda band_lo,x
+        bpl band_positive
+        sec                                 ; this band is on the other screen
+band_positive:
+        lda band_hi,x
         rol
         tay
         lda z:ppuctrl_shadow
-        and #$FC
+        and #$FC                            ; which screen, from this band
         adc #$00
         sta PPUCTRL
         sty PPUSCROLL
-        lda $A7
+        lda scroll_y
         sta PPUSCROLL
         rts
 ; --- $8301  Wait for the next frame.
@@ -426,10 +504,10 @@ wait_frame:
         ldx z:nmi_latch
         beq wait_frame
         inx
-        stx z:nmi_latch
-        stx $03C3
-        stx $0387
-        stx $0395
+        stx z:nmi_latch                     ; NMI stored $FF. This clears it
+        stx tile_buf                        ; and clears this frame's tiles
+        stx tiles_handed
+        stx packet_i
         rts
 ; --- $8312  Call the routine picked from the list after this jsr.
 jump_table:
@@ -448,37 +526,40 @@ jump_table:
         stx $0E
         jmp ($000E)
 ; --- $8328  Place the sprite that splits the picture.
+; A is how high it sits.
 split_sprite:
-        sta $0200
+        sta sprites                         ; how high
         lda #$F8
-        sta $0201
+        sta sprites+1                       ; an empty tile
         lda #$20
-        sta $0202
+        sta sprites+2                       ; behind the background
         lda #$F8
-        sta $0203
+        sta sprites+3                       ; at the right of the screen
         lda #$01
-        sta $0386
+        sta split_on
         rts
 ; --- $8340  Load the colors.
+; Bit 7 clear starts at the sprites. Bit 6 paints the background color and does not stop there.
 load_colors:
         ldx #$00
         ldy #$00
         asl
         sta $00
-        bcs c834D
-        ldx #$11
+        bcs read_set                        ; the background colors
+        ldx #$11                            ; the sprite colors
         ldy #$04
-c834D:
+; The next color set.
+read_set:
         sty $01
-c834F:
+next_palette_set:
         ldy $01
         inc $01
-        lda $038C,y
+        lda palette_set,y
         ldy #$00
         asl
-        bcc c835D
-        ldy #$02
-c835D:
+        bcc have_table                      ; the first list of colors
+        ldy #$02                            ; the second list
+have_table:
         pha
         lda cutscene_colors,y
         sta $02
@@ -488,105 +569,109 @@ c835D:
         sta $04
         lsr
         clc
-        adc $04
+        adc $04                             ; three colors in a set
         tay
-c8370:
+; One of those colors. Every fourth is the background, and it is skipped.
+copy_color:
         txa
         and #$03
-        beq c837B
+        beq skip_color
         lda ($02),y
-        sta $03A3,x
+        sta colors,x
         iny
-c837B:
+skip_color:
         inx
         txa
         and #$03
-        bne c8370
+        bne copy_color
         lda $00
-        bmi c8389
+        bmi more_colors                     ; keep going into the sprites
         cpx #$11
-        beq c838D
-c8389:
+        beq colors_ready                    ; stop after the background
+more_colors:
         cpx #$20
-        bne c834F
-c838D:
+        bne next_palette_set
+colors_ready:
         lda $00
-        bpl c8394
+        bpl send_palette
         jsr fill_backdrop
-c8394:
+send_palette:
         jsr send_colors
         rts
 ; --- $8398  Paint the background color into each set.
 fill_backdrop:
-        lda $038B
+        lda backdrop
         ldx #$00
-c839D:
-        sta $03A3,x
+; The background color of this set.
+next_backdrop:
+        sta colors,x
         inx
         inx
         inx
         inx
-        cpx #$20
-        bne c839D
+        cpx #$20                            ; all eight sets
+        bne next_backdrop
         rts
 ; --- $83A9  Buttons just pressed.
 buttons_pressed:
         lda z:pad_cur
         tax
         and #$FF
-        eor $EA
-        and z:pad_cur
-        stx $EA
+        eor pad_last
+        and z:pad_cur                       ; held now, and not on the last frame
+        stx pad_last
         rts
 ; --- $83B5  Do the next thing the script says.
+; A step waits, then runs its commands.
 step_script:
-        lda $0301
-        beq c83BE
-        dec $0301
+        lda wait_lo
+        beq wait_high
+        dec wait_lo                         ; one frame less
         rts
-; Still waiting.
-c83BE:
-        lda $0302
+; The low half has run out.
+wait_high:
+        lda wait_hi
         beq read_step
-        dec $0302
-        dec $0301
+        dec wait_hi
+        dec wait_lo                         ; another 256 frames
         rts
-; --- $83CA  The wait is over.
+; --- $83CA  The wait is over. The next two bytes are the next wait.
 read_step:
-        sta $0388
+        sta colors_due                      ; no colors are waiting
         jsr next_byte
-        sta $0301                           ; how long to wait
+        sta wait_lo
         jsr next_byte
-        sta $0302
-        and $0301
+        sta wait_hi
+        and wait_lo
         cmp #$FF
         bne next_command
         lda #$01
-        sta $0303                           ; the script is over
+        sta script_done                     ; both bytes were $FF. The script is over
 ; --- $83E5  This step is done.
 step_done:
-        lda $0305
-        bne c83F4
-        lda $0388
-        beq c83F4
+        lda shade_left
+        bne step_leave                      ; a fade is using the colors
+        lda colors_due
+        beq step_leave
         lda #$C0
-        jsr load_colors
-c83F4:
+        jsr load_colors                     ; background, sprites, and the background color
+step_leave:
         rts
 ; --- $83F5  The next command.
+; The top two bits pick the group. The low six bits pick the command in that group.
 next_command:
         jsr next_byte
         tax
         inx
-        beq step_done
+        beq step_done                       ; $FF ends the commands for this step
         pha
         and #$3F
         tax
         pla
         and #$C0
         cmp #$40
-        bcc flash_gray
-        jmp place_on_screen
+        bcc flash_gray                      ; the small commands
+        jmp place_on_screen                ; a picture, or a line
 ; --- $840A  Flash the picture gray.
 flash_gray:
         dex
@@ -605,10 +690,10 @@ move_camera:
         dex
         bne begin_fade
         tax
-        bne c842A
-        sta $031D
+        bne camera_go
+        sta band_count                      ; zero stops the camera
         beq next_command
-c842A:
+camera_go:
         jsr start_scroll
         jmp next_command
 ; --- $8430  Start fading the colors.
@@ -623,10 +708,10 @@ pick_screens:
         bne cutscene_sound
         ldy #$00
         cmp #$1E                            ; the usual screens
-        beq c8443
-        iny
-c8443:
-        sty $0385
+        beq set_screens
+        iny                                 ; the other way
+set_screens:
+        sty which_screen
         jsr write_control
         jmp next_command
 ; --- $844C  Play a sound. Any other number also turns colors black.
@@ -639,13 +724,13 @@ cutscene_sound:
 place_tiles:
         dex
         bne pick_pictures
-        sta $E8
+        sta tile_ptr
         jsr next_byte
-        sta $E9
+        sta tile_ptr+1
         jsr next_byte
-        sta $0311
+        sta tile_base
         jsr next_byte
-        sta $0312
+        sta tile_base_hi
         jsr queue_tiles
         jmp next_command
 ; --- $8470  Choose the pictures.
@@ -653,12 +738,13 @@ pick_pictures:
         dex
         bne one_picture
         tax
-        bpl c847E
+        bpl upper_pictures
         and #$1F
-        sta $038A                           ; pictures for the lower part of the screen
+        sta split_chr                       ; pictures for the lower part of the screen
         jmp next_command
-c847E:
-        sta a:$59                           ; CHR bank 1
+; Pictures for the rest of the screen.
+upper_pictures:
+        sta a:chr_bank1
         jmp next_command
 ; --- $8484  One moving picture.
 one_picture:
@@ -673,212 +759,226 @@ one_picture:
         jsr picture_motion
         pla
         and #$E0
-        sta $0345,x
+        sta actor_flags,x                   ; which way it faces, and how it is shown
         jmp next_command
 ; --- $8499  The background color, and how the picture is shown.
 tint_picture:
         dex
         bne scroll_speed
-        sta $038B
+        sta backdrop
         lda z:ppumask_shadow
-        and #$1E
+        and #$1E                            ; keep the sprites and the background
         sta z:ppumask_shadow
         jsr next_byte
-        ora z:ppumask_shadow
+        ora z:ppumask_shadow                ; gray, or the red, green, and blue tint
         sta z:ppumask_shadow
-        inc $0388
+        inc colors_due
         jmp next_command
 ; --- $84B2  How the picture scrolls.
+; Zero stops the up and down scroll. $FF stops the sideways scroll.
+; A negative byte changes the camera move. Any other byte stops one band per bit.
 scroll_speed:
         dex
         bne pick_colors
         tax
-        bne c84BE
-        sta $E2                             ; stop moving up and down
-        sta $E3
-        beq c84E4
-c84BE:
+        bne check_horizontal
+        sta scroll_dy_lo                    ; stop moving up and down
+        sta scroll_dy
+        beq speed_done
+; Not zero. $FF stops the sideways scroll.
+check_horizontal:
         inx
-        bne c84C7
-        stx $E0                             ; stop moving sideways
-        stx $E1
-        beq c84E4
-c84C7:
-        bpl c84CF
+        bne not_horizontal
+        stx scroll_dx_lo                    ; stop moving sideways
+        stx scroll_dx
+        beq speed_done
+; A negative byte is a camera move.
+not_horizontal:
+        bpl clear_band_speed
         jsr change_scroll
         jmp next_command
-c84CF:
+; Each bit that is set stops that band.
+clear_band_speed:
         ldx #$00
-c84D1:
+band_bit:
         lsr
-        bcc c84DE
+        bcc next_band_bit                   ; this band keeps scrolling
         pha
         lda #$00
-        sta $032E,x
-        sta $032F,x
+        sta band_speed,x
+        sta band_speed_hi,x
         pla
-c84DE:
+next_band_bit:
         inx
         inx
-        cpx #$0A
-        bne c84D1
-c84E4:
+        cpx #$0A                            ; five bands
+        bne band_bit
+speed_done:
         jmp next_command
 ; --- $84E7  Which colors to use.
+; The low half is how many. Bit 7 picks the sprites; otherwise the background.
 pick_colors:
         dex
         bne play_shot
         tay
         and #$0F
-        sta $00
-        ldx #$04
+        sta $00                             ; how many
+        ldx #$04                            ; the sprites
         tya
-        bmi c84F6
-        ldx #$00
-c84F6:
+        bmi store_color
+        ldx #$00                            ; the background
+store_color:
         jsr next_byte
-        sta $038C,x
+        sta palette_set,x
         inx
         dec $00
-        bne c84F6
-        inc $0388
+        bne store_color
+        inc colors_due
         jmp next_command
 ; --- $8507  Move through this shot.
 play_shot:
         dex
         bne black_command
         ldy #$00
-        sty $0310
+        sty shot_at
         iny
-        sty $030C
+        sty shot_on
         tay
         asl
-        sta $030D
+        sta shot_i
         lda shot_wait,y
-        sta $030E
-        sta $030F
+        sta shot_delay
+        sta shot_left
         jmp next_command
 ; --- $8524  Turn these colors black.
 black_command:
         jsr black_colors
         jmp next_command
 ; --- $852A  Fill the screens, and draw on the background.
+; The low six bits are how many pictures. Zero only fills the screens.
 place_on_screen:
         cmp #$80
         bcs place_pictures
         txa
-        bne c8537
+        bne fill_and_draw
         jsr fill_screens
         jmp next_command
-c8537:
-        stx $0336
+fill_and_draw:
+        stx bg_left
         jsr fill_screens
         jsr next_byte
-        sta $038B
+        sta backdrop
         ldx #$01
-c8545:
+; Three background color sets.
+bg_palette_set:
         jsr next_byte
-        sta $038C,x
+        sta palette_set,x
         inx
         cpx #$04
-        bne c8545
-c8550:
+        bne bg_palette_set
+; One picture, at the next place.
+draw_bg:
         jsr next_byte
         asl
         tax
         lda screen_pos,x
-        sta z:picture_at                  ; where this picture goes
+        sta z:picture_at                    ; where this picture goes
         lda screen_pos+1,x
         sta z:picture_at_hi
         jsr next_byte
-        ldx #$80
+        ldx #$80                            ; draw it from bank 06
         jsr call_bank
-        dec $0336
-        bne c8550
-        inc $0388
+        dec bg_left
+        bne draw_bg
+        inc colors_due
         jmp next_command
 ; --- $8572  Put pictures on screen, or hide them.
+; The low six bits are how many. Zero hides them all.
 place_pictures:
         cmp #$C0
-        bcs c85DD
+        bcs say_line
         txa
-        bne c857F
+        bne place_some
         jsr hide_pictures
         jmp next_command
-c857F:
-        stx $033C
+place_some:
+        stx actor_left
         ldx #$00
-c8584:
+; The four sprite color sets.
+read_sprite_set:
         jsr next_byte
-        sta $0390,x
+        sta palette_set+4,x
         inx
         cpx #$04
-        bne c8584
+        bne read_sprite_set
         ldx #$00
-c8591:
+; One moving picture. Where it stands, how it faces, and which picture.
+place_one:
         jsr next_byte
-        sta $0342,x
+        sta actor_x,x
         jsr next_byte
         asl
         php
         lsr
-        sta $0344,x
+        sta actor_y,x
         plp
         lda #$00
-        sta $0343,x
+        sta actor_y_lo,x
         ror
-        sta $0341,x
+        sta actor_x_lo,x                    ; half a pixel over, when that byte was negative
         jsr next_byte
-        sta $0345,x
+        sta actor_flags,x
         jsr next_byte
-        sta $0348,x
+        sta actor_pic,x
         tay
-        bpl c85C7
+        bpl one_placed                      ; one picture, not a list of poses
         and #$7F
         tay
-        lda c88CF,y
-        sta $0346,x
+        lda pose_wait,y
+        sta actor_time,x                    ; how long the first pose stays
         lda #$00
-        sta $0347,x
-c85C7:
+        sta actor_pose,x
+one_placed:
         jsr picture_motion
         txa
         clc
-        adc #$10
+        adc #$10                            ; the next picture
         tax
-        dec $033C
-        bne c8591
-        jsr hide_pictures
-        inc $0388
+        dec actor_left
+        bne place_one
+        jsr hide_pictures                   ; hide the ones that were not just placed
+        inc colors_due
         jmp next_command
-; The other bank handles this command.
-c85DD:
-        stx $0316
-        jsr next_byte
-        ldx #$44
+; --- $85DD  Start a line. The low six bits are how long each letter waits.
+say_line:
+        stx line_speed
+        jsr next_byte                       ; which line
+        ldx #$44                            ; start it
         jsr call_bank
         jmp next_command
 ; --- $85EB  Hide the moving pictures.
+; X is the first one to hide. $40 hides none.
 hide_pictures:
         lda #$00
         cpx #$40
-        beq c8609
+        beq hide_done
         cpx #$30
-        beq c8606
+        beq hide_last
         cpx #$20
-        beq c8603
+        beq hide_two
         cpx #$10
-        beq c8600
-        sta $0340
-c8600:
-        sta $0350
-c8603:
-        sta $0360
-c8606:
-        sta $0370
-c8609:
+        beq hide_three
+        sta actor_move                      ; the first picture
+hide_three:
+        sta actor_move+$10
+hide_two:
+        sta actor_move+$20
+hide_last:
+        sta actor_move+$30
+hide_done:
         rts
 ; --- $860A  How this picture moves.
+; It stays, it slides, it walks a path, or it slides and its speed changes.
 picture_motion:
         jsr next_byte
         pha
@@ -888,68 +988,72 @@ picture_motion:
         and #$03
         clc
         adc #$01
-        sta $0340,x
+        sta actor_move,x
         tay
         pla
         and #$3F
         dey
         dey
-        bmi c863E
-        bne c863F
+        bmi motion_stay                     ; it stays
+        bne motion_path
         asl
         asl
         tay
-        lda c8B04,y
+        lda slide_speed,y                   ; sideways
         sta $0349,x
-        lda c8B04+1,y
+        lda slide_speed+1,y
         sta $034A,x
-        lda c8B04+2,y
+        lda slide_speed+2,y                 ; up and down
         sta $034B,x
-        lda c8B04+3,y
+        lda slide_speed+3,y
         sta $034C,x
-c863E:
+motion_stay:
         rts
-c863F:
+; Walk a path. The byte picks the path, and how long it waits on the first place.
+motion_path:
         dey
-        bne c8652
-        sta $0349,x
+        bne motion_speed
+        sta $0349,x                         ; which path
         tay
-        lda c88E3,y
-        sta $034A,x
+        lda path_wait,y
+        sta $034A,x                         ; frames on this place
         lda #$00
-        sta $034B,x
+        sta $034B,x                         ; the first place
         rts
-c8652:
+; Slide, and change speed.
+motion_speed:
         sta $00
         asl
         clc
         adc $00
-        asl
+        asl                                     ; six bytes each
         tay
-        lda c8B6C,y
+        lda speed_change,y                  ; sideways
         sta $0349,x
-        lda c8B6C+1,y
+        lda speed_change+1,y
         sta $034A,x
-        lda c8B6C+2,y
+        lda speed_change+2,y                ; up and down
         sta $034B,x
-        lda c8B6C+3,y
+        lda speed_change+3,y
         sta $034C,x
-        lda c8B6C+4,y
+        lda speed_change+4,y                ; how much the sideways speed changes
         sta $034D,x
-        lda c8B6C+5,y
+        lda speed_change+5,y                ; and the up and down speed
         sta $034F,x
         rts
 ; --- $867F  The next byte of the script.
 next_byte:
-        ldy $0304
-        lda ($0A),y
+        ldy script_at
+        lda (script_ptr),y
         iny
-        bne c8689
-        inc $0B
-c8689:
-        sty $0304
+        bne script_next
+        inc script_ptr+1
+script_next:
+        sty script_at
         rts
 ; --- $868D  Start fading the colors.
+; The top bit jumps several shades and starts from black.
+; The next two bits choose which colors. The rest is the wait between shades.
 start_fade:
         tax
         lsr
@@ -957,40 +1061,42 @@ start_fade:
         and #$1F
         tay
         lda shade_delay,y
-        sta $0309
-        sta $0306
+        sta shade_load
+        sta shade_wait
         txa
         and #$80
-        sta $0307
+        sta fade_mode
         txa
         ror
         ror
         ror
-        and #$C0
-        sta $0308
+        and #$C0                            ; the low two bits choose the colors
+        sta fade_which
         lda #$04
-        sta $0305
+        sta shade_left                      ; four shades
         lda #$C0
         jsr load_colors
-        bit $0307
-        bpl c86C0
-        lda $0308
-        jsr black_colors
-c86C0:
+        bit fade_mode
+        bpl fade_ready
+        lda fade_which
+        jsr black_colors                    ; start from black
+fade_ready:
         rts
 ; --- $86C1  Start flashing the picture gray.
+; It flips every other frame, 62 times, then the color comes back.
 start_gray:
         lda #$3F
         pha
         lsr
         and #$70
-        sta $030B
+        sta flash_time                      ; one frame between flips
         pla
         and #$1F
         asl
-        sta $030A
+        sta flash_left                      ; 62 flips
         rts
 ; --- $86D2  Start this camera move.
+; The top two bits say whether the pictures change at the split.
 start_scroll:
         tay
         asl
@@ -1002,69 +1108,71 @@ start_scroll:
         sta $01
         tya
         and #$C0
-        sta $0384
+        sta camera_flags
         ldy #$00
-        sty $030C
-        sty $A0
-        sty $A6
+        sty shot_on
+        sty scroll_x_lo
+        sty scroll_y_lo
         lda ($00),y
         iny
-        sta $031D
-        sta $02
+        sta band_count
+        sta $02                             ; bands still to copy
         lda z:ppuctrl_shadow
         and #$FC
-        ora ($00),y
+        ora ($00),y                         ; which screen
         iny
         sta z:ppuctrl_shadow
         lda ($00),y
         iny
-        sta $0200
+        sta sprites                         ; how high the split sits
         lda ($00),y
         iny
-        sta $A1
+        sta scroll_x
         lda ($00),y
         iny
-        sta $A7
+        sta scroll_y
         lda ($00),y
         iny
-        sta $E0
+        sta scroll_dx_lo
         lda ($00),y
         iny
-        sta $E1
+        sta scroll_dx
         lda ($00),y
         iny
-        sta $E2
+        sta scroll_dy_lo
         lda ($00),y
         iny
-        sta $E3
-        lda $031D
-        beq c8755
+        sta scroll_dy
+        lda band_count
+        beq scroll_ready                    ; no bands
         ldx #$00
-c872C:
+; One band. Where it starts, how long until the next, and how fast it moves.
+copy_band:
         lda ($00),y
         iny
-        sta $031F,x
+        sta band_hi,x
         lda #$00
-        sta $031E,x
+        sta band_lo,x
         lda ($00),y
         iny
-        sta $0326,x
+        sta band_hold,x
         lda ($00),y
         iny
-        sta $0327,x
+        sta band_hold_hi,x
         lda ($00),y
         iny
-        sta $032E,x
+        sta band_speed,x
         lda ($00),y
         iny
-        sta $032F,x
+        sta band_speed_hi,x
         inx
         inx
         dec $02
-        bne c872C
-c8755:
+        bne copy_band
+scroll_ready:
         rts
 ; --- $8756  Change that move.
+; The picture stays where it is. The speeds change.
 change_scroll:
         asl
         and #$7E
@@ -1076,208 +1184,220 @@ change_scroll:
         ldy #$00
         lda ($00),y
         iny
-        sta $02
-        iny
+        sta $02                             ; how many bands
+        iny                                 ; skip the screen, the split, and where it is scrolled
         iny
         iny
         iny
         lda ($00),y
         iny
-        sta $E0
+        sta scroll_dx_lo
         lda ($00),y
         iny
-        sta $E1
+        sta scroll_dx
         lda ($00),y
         iny
-        sta $E2
+        sta scroll_dy_lo
         lda ($00),y
         iny
-        sta $E3
+        sta scroll_dy
         lda a:$02
-        beq c879F
+        beq change_ready                    ; no bands
         ldx #$00
-c878A:
+; This band's new speed. Where it is, and the wait, stay.
+copy_speed:
         iny
         iny
         iny
         lda ($00),y
         iny
-        sta $032E,x
+        sta band_speed,x
         lda ($00),y
         iny
-        sta $032F,x
+        sta band_speed_hi,x
         inx
         inx
         dec $02
-        bne c878A
-c879F:
+        bne copy_speed
+change_ready:
         rts
 ; --- $87A0  One step darker.
 darken_colors:
-        lda $0306
-        beq c87A9
-        dec $0306
+        lda shade_wait
+        beq do_shade
+        dec shade_wait
         rts
-c87A9:
-        lda $0309
-        sta $0306
-        lda $0307
-        bpl c87B9
+; The wait is over.
+do_shade:
+        lda shade_load
+        sta shade_wait
+        lda fade_mode
+        bpl shade_colors
         lda #$C0
-        jsr load_colors
-c87B9:
-        lda $0305
+        jsr load_colors                     ; start this shade from the real colors
+shade_colors:
+        lda shade_left
         sec
         sbc #$01
         asl
         asl
         asl
         asl
-        sta $00
+        sta $00                             ; how far to jump, when the fade jumps
         ldy #$00
-        bit $0308
-        bmi c87CE
-        ldy #$11
-c87CE:
-        lda $0307
-        bmi c87F5
-        lda $03A3,y
+        bit fade_which
+        bmi shade_one                       ; start at the first color
+        ldy #$11                            ; start at the sprites
+; One color.
+shade_one:
+        lda fade_mode
+        bmi shade_jump                      ; jump several shades
+        lda colors,y
         sec
         sbc #$10                            ; one shade darker
-        bpl c87DD
+        bpl store_shade
         lda #$0F                            ; black
-c87DD:
-        sta $03A3,y
-        bit $0308
-        bvs c87E9
+store_shade:
+        sta colors,y
+        bit fade_which
+        bvs shade_next                      ; keep going
         cpy #$10
-        beq c87EE
-c87E9:
+        beq shade_sent                      ; stop after the background
+shade_next:
         iny
         cpy #$20
-        bne c87CE
-c87EE:
-        dec $0305
+        bne shade_one
+shade_sent:
+        dec shade_left
         jsr send_colors
         rts
-c87F5:
-        lda $03A3,y
+; Jump several shades. The low half of the color stays.
+shade_jump:
+        lda colors,y
         and #$F0
         sec
         sbc $00
         sta $01
-        bmi c880B
-        lda $03A3,y
+        bmi shade_black
+        lda colors,y
         and #$0F
         ora $01
-        jmp c87DD
-c880B:
+        jmp store_shade
+shade_black:
         lda #$0F                            ; black
-        bne c87DD
+        bne store_shade
 ; --- $880F  One step of the gray flash.
 gray_flash:
-        lda $030B
+        lda flash_time
         tax
         and #$07
-        beq c881B
-        dec $030B
+        beq flip_gray
+        dec flash_time                      ; one frame less
         rts
-c881B:
+; Flip between gray and color, and count that wait again.
+flip_gray:
         txa
         lsr
         lsr
         lsr
         lsr
-        ora $030B
-        sta $030B
+        ora flash_time
+        sta flash_time
         lda z:ppumask_shadow
-        eor #$01                            ; gray
+        eor #$01                            ; gray, or color again
         sta z:ppumask_shadow
-        dec $030A
-        bne c8835
-        lsr z:ppumask_shadow                ; color again
+        dec flash_left
+        bne flash_done
+        lsr z:ppumask_shadow                ; the last flip leaves it in color
         asl z:ppumask_shadow
-c8835:
+flash_done:
         rts
 ; --- $8836  Copy tiles into the list the screen draws.
+; A zero ends the list. Bit 7 of a run writes down the column.
 queue_tiles:
         ldy #$00
-        ldx $0395
-c883B:
-        lda ($E8),y
-        sta $03C3,x
-        bne c8849
-        stx $0395
+        ldx packet_i
+; The next run.
+tile_run:
+        lda (tile_ptr),y
+        sta tile_buf,x
+        bne tile_bytes
+        stx packet_i
         jsr send_tiles
         rts
-c8849:
+tile_bytes:
         and #$7F
-        sta $02
+        sta $02                             ; how many tiles
         iny
         clc
-        lda $0311
-        adc ($E8),y
-        sta $03C4,x
+        lda tile_base
+        adc (tile_ptr),y
+        sta tile_buf+1,x                    ; where they go
         iny
-        lda $0312
-        adc ($E8),y
-        sta $03C5,x
+        lda tile_base_hi
+        adc (tile_ptr),y
+        sta tile_buf+2,x
         iny
         inx
         inx
         inx
-c8864:
-        lda ($E8),y
-        sta $03C3,x
+; One tile of this run.
+copy_tile:
+        lda (tile_ptr),y
+        sta tile_buf,x
         iny
         inx
         dec $02
-        bne c8864
-        beq c883B
+        bne copy_tile
+        beq tile_run
 ; --- $8871  The next place in this shot.
 scroll_step:
-        lda $030F
-        beq c887A
-        dec $030F
+        lda shot_left
+        beq next_place
+        dec shot_left
         rts
-c887A:
-        lda $030E
-        sta $030F
-        ldx $030D
+; The wait is over.
+next_place:
+        lda shot_delay
+        sta shot_left
+        ldx shot_i
         lda shot_place,x
         sta $00
         lda shot_place+1,x
         sta $01
-        ldy $0310
-c8890:
+        ldy shot_at
+; A negative byte repeats the shot.
+read_place:
         lda ($00),y
-        bpl c8898
+        bpl apply_place
         ldy #$00
-        beq c8890
-c8898:
+        beq read_place
+apply_place:
         lda z:ppuctrl_shadow
         and #$FC
-        ora ($00),y
+        ora ($00),y                         ; which screen
         sta z:ppuctrl_shadow
         iny
         lda ($00),y
         iny
-        sta $A1
+        sta scroll_x
         lda ($00),y
         iny
-        sta $A7
-        sty $0310
+        sta scroll_y
+        sty shot_at
         rts
 
 ; Frames between shades. 0 through 31.
 shade_delay:
         .byte $00, $01, $02, $03, $04, $05, $06, $07, $08, $09, $0A, $0B, $0C, $0D, $0E, $0F
         .byte $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $1A, $1B, $1C, $1D, $1E, $1F
-c88CF:
+; How long the first pose stays. The low half counts down. The high half is used again.
+; Twenty of them.
+pose_wait:
         .byte $44, $33, $33, $FF, $33, $22, $55, $33, $55, $22, $33, $33, $88, $33, $66, $66
         .byte $FF, $88, $AA, $33
-; How one kind of picture moves.
-c88E3:
+; How long a picture waits on the first place of its path.
+path_wait:
         .byte $44, $44
 ; Frames to wait before the next place.
 shot_wait:
@@ -1321,8 +1441,9 @@ camera_move:
         .byte $B0, $00, $00, $00, $04, $00, $9A, $02, $00, $00, $80, $BE, $05, $00, $00, $00
         .byte $70, $01, $00, $00, $03, $00, $0F, $00, $40, $00, $00, $00, $FC, $00, $9A, $02
         .byte $00, $00, $80, $BE, $05, $00, $00, $00, $70, $01, $00, $00
-; How one kind of picture moves.
-c8B04:
+; How fast a picture slides. Sideways, then up and down.
+; The second byte of each is the rest of that speed. Twenty-six of them.
+slide_speed:
         .byte $00, $04, $00, $00, $00, $FC, $00, $00, $00, $04, $00, $FC, $00, $FC, $00, $FC
         .byte $00, $00, $00, $04, $C0, $FF, $00, $00, $40, $00, $00, $00, $10, $00, $30, $00
         .byte $C0, $FF, $E0, $FF, $00, $00, $40, $00, $80, $00, $00, $FE, $00, $FE, $00, $02
@@ -1330,8 +1451,9 @@ c8B04:
         .byte $F0, $FF, $00, $00, $20, $00, $00, $00, $80, $FF, $00, $00, $00, $00, $00, $02
         .byte $00, $00, $00, $FE, $08, $00, $0A, $00, $00, $00, $0A, $00, $04, $00, $20, $00
         .byte $00, $00, $10, $00, $00, $00, $0C, $00
-; How one kind of picture moves.
-c8B6C:
+; A picture that slides and speeds up. Sideways speed, up and down speed,
+; then how much each one changes. Twelve of them.
+speed_change:
         .byte $38, $00, $90, $FF, $00, $01, $E0, $FF, $90, $FF, $00, $01, $38, $00, $01, $00
         .byte $00, $01, $E0, $FF, $0F, $00, $00, $01, $00, $FC, $00, $00, $02, $10, $00, $04
         .byte $00, $00, $FC, $00, $00, $FC, $00, $00, $40, $00, $80, $04, $00, $03, $B8, $D0
@@ -1409,8 +1531,8 @@ script_list:
         .word script_09                     ; Act VI, stage 4.
         .word script_0A                     ; Act VI, stage 4.
         .word script_0B                     ; Act VI, stage 5.
-        .word script_0C
-        .word script_0D
+        .word script_0C                     ; Start skipped the one below. Then the game starts.
+        .word script_0D                     ; Start skipped the opening. If this finishes, the opening plays again.
 
 ; The opening, and Act I, stage 1.
 script_00:
@@ -1846,10 +1968,12 @@ script_0B:
         .byte $00, $00, $0E, $C0, $FF, $B3, $00, $03, $82, $02, $80, $41, $0F, $00, $00, $00
         .byte $1F, $40, $04, $BE, $FF, $C1, $01, $CA, $70, $FF, $FE, $FF, $81, $00, $00, $00
         .byte $53, $40, $5C, $00, $32, $01, $04, $BD, $FF, $FF, $FF
+; Start skipped the script below. Then the game starts.
 script_0C:
         .byte $1F, $00, $80, $03, $54, $05, $1E, $06, $2A, $02, $42, $0F, $0D, $53, $00, $0D
         .byte $1A, $17, $1D, $FF, $1F, $00, $03, $55, $FF, $B3, $00, $0B, $01, $81, $A1, $9A
         .byte $9B, $9C, $58, $2C, $00, $50, $01, $04, $A9, $FF, $FF, $FF
+; Start skipped the opening. If this finishes, the opening plays again.
 script_0D:
         .byte $57, $02, $0A, $0F, $00, $03, $42, $03, $00, $02, $42, $0F, $53, $00, $00, $12
         .byte $1C, $1A, $3E, $80, $06, $02, $FF, $59, $00, $04, $3F, $FF, $FF, $FF, $00, $FF
@@ -2255,10 +2379,10 @@ call_bank:
 bank_routines:
         jsr jump_table
         .word play_cutscene
-        .word c8003                         ; inside the setup above
-        .word c8006
-        .word c8009
-        .word c800C
+        .word clear_scene                   ; inside the setup above
+        .word zero_byte
+        .word zero_next
+        .word scene_byte
         .byte $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF
         .byte $D8, $A9, $10, $8D, $00, $20, $A9, $80, $8D, $00
 

@@ -15,7 +15,7 @@ start_sound_test:
 f8006:
         jsr hide_picture
 f8009:
-        lda $0394                       ; which picture
+        lda call_num                    ; which picture
 f800C:
         asl
         tax
@@ -28,7 +28,7 @@ f800C:
         iny
         tax
         and #$1F
-        sta $59                         ; CHR bank 1
+        sta chr_bank1                   ; background tiles
         txa
         lsr
         lsr
@@ -211,13 +211,13 @@ show_picture:
 
 ; --- $8171  Hand the tiles to the screen, if they have not gone yet.
 hand_tiles:
-        lda $0387
+        lda tiles_handed
         bne f8181
         lda #$03
         sta $2C
         lda #$C3
         sta z:packet
-        inc $0387
+        inc tiles_handed
 f8181:
         rts
 
@@ -227,7 +227,7 @@ hand_colors:
         sta $2C
         lda #$A0
         sta z:packet
-        inc $0387
+        inc tiles_handed
         rts
 
 ; --- $818E  Call the routine picked from the list after this jsr.
@@ -338,7 +338,7 @@ run_sound_test:
         ldx #$00
         stx $0C
         lda #$10
-        sta a:$56                       ; CHR bank 0
+        sta a:chr_bank0                 ; the number's tiles
         lda #$87                        ; how high the number sits
         sta $0200
         sta $0204
@@ -368,7 +368,7 @@ f8265:
         beq f8265
         inx
         stx z:nmi_latch
-        stx $0387
+        stx tiles_handed
         jsr button_edge
         lsr
         lsr
@@ -425,9 +425,9 @@ button_edge:
         lda z:pad_cur
         tax
         and #$FF
-        eor $EA
+        eor pad_last
         and z:pad_cur
-        stx $EA
+        stx pad_last
         rts
 
 ; --- $82CA  Tiles on the sound test.
@@ -435,75 +435,77 @@ test_tiles:
         .byte $FA, $B9, $E1, $BA, $EC, $BC, $FA, $FA, $FA, $FA
 
 ; --- $82D4  Which picture to draw.
+; The first byte picks the background tiles, and which set of blocks.
+; The next byte is how many across, and how many down. Then the blocks.
 picture_list:
-        .word f8356
-        .word f83B8
-        .word f83DA
-        .word f83FC
-        .word f8406
-        .word f8418
-        .word f843A
-        .word f845C
-        .word f847E
-        .word f84A0
-        .word f84D2
-        .word f84DC
-        .word f84EA
-        .word f850C
-        .word f852E
-        .word f8588
-        .word f85E2
-        .word f863C
-        .word f8656
-        .word f8678
-        .word f868A
-        .word f86A4
-        .word f86B6
-        .word f86C8
-        .word f86E2
-        .word f86F4
-        .word f8716
-        .word f8727
-        .word f8741
-        .word f8763
-        .word f876F
-        .word f8789
-        .word f87FB
-        .word f881D
-        .word f883F
-        .word f8859
-        .word f8873
-        .word f888D
-        .word f88A7
-        .word f88C1
-        .word f88D3
-        .word f88F5
-        .word f891F
-        .word f8979
-        .word f898B
-        .word f89AD
-        .word f89CF
-        .word f89F1
-        .word f8A0B
-        .word f8A1D
-        .word f8A3F
-        .word f8A4D
-        .word f8A5F
-        .word f8A69
-        .word f8A6C
-        .word f8A72
-        .word f8A9C
-        .word f8AAA
-        .word f8AAD
-        .word f8AC7
-        .word f8AE9
-        .word f8B0B
-        .word f8B2D
-        .word f8B53
-        .word f8B6D
+        .word moon_field
+        .word streaks
+        .word moon_grass
+        .word ryu_bust
+        .word the_sword
+        .word eyes_open
+        .word eyes_hard
+        .word eyes_closing
+        .word eyes_shut
+        .word irene_gun
+        .word demon_statue
+        .word irene_profile
+        .word walter
+        .word smith_back
+        .word temple_moon
+        .word field_trees
+        .word temple_field
+        .word jaquio_face
+        .word broken_wall
+        .word malth
+        .word fathers_fight
+        .word devil_mask
+        .word father
+        .word three_faces
+        .word demon_claw
+        .word grass
+        .word ryu_runs
+        .word bloody_hall
+        .word title_ninja
+        .word title_logo
+        .word forest_top
+        .word great_moon
+        .word gold_armor
+        .word blank_strip
+        .word cell_door
+        .word cell_open
+        .word stone_wall
+        .word roof_hole
+        .word cia_agents
+        .word looking_down
+        .word foster_office
+        .word red_close
+        .word jungle
+        .word irene_held
+        .word ryu_profile
+        .word ryu_face
+        .word ryu_back
+        .word father_wakes
+        .word a_hand
+        .word leaves
+        .word blank_purple
+        .word night_sky
+        .word gold_statue
+        .word small_statue
+        .word presents
+        .word blank_gray
+        .word irene_held_close
+        .word ryu_edge
+        .word office_wall
+        .word temple_hall
+        .word temple_demon
+        .word office_stripes
+        .word push_start
+        .word push_start_spare
+        .word the_end
 
-; --- $8356  One picture. How many across, how many down, then the tiles.
-f8356:
+; --- $8356  The moon over the field.
+moon_field:
         .byte $12, $8B, $5F, $08, $06, $09, $06, $11, $10, $12, $09, $0C, $0D, $13, $14, $07
         .byte $0A, $08, $0E, $0A, $0B, $15, $16, $09, $09, $11, $0D, $09, $0D, $17, $18, $06
         .byte $0E, $07, $09, $0E, $0F, $19, $1A, $09, $06, $0E, $06, $06, $09, $09, $06, $06
@@ -512,80 +514,80 @@ f8356:
         .byte $03, $03, $04, $04, $04, $04, $04, $04, $04, $04
         .byte $05, $05, $05, $05, $05, $05, $05, $05
 
-; --- $83B8  8 across, 4 down.
-f83B8:
+; --- $83B8  White streaks.
+streaks:
         .byte $32, $84, $77, $73, $76, $79, $79, $25, $78, $7D, $74, $75, $25, $78, $7A, $7B
         .byte $25, $79, $77, $76, $79, $74, $75, $25, $78, $25, $73, $25, $78, $7A, $7B, $7C
         .byte $7D, $7D
 
-; --- $83DA  8 across, 4 down.
-f83DA:
+; --- $83DA  The edge of the moon, and the grass.
+moon_grass:
         .byte $3E, $84, $25, $25, $25, $25, $25, $38, $39, $25, $25, $25, $25, $25, $25, $3A
         .byte $3B, $25, $26, $26, $26, $26, $26, $26, $26, $26, $27, $27, $27, $27, $27, $27
         .byte $27, $27
 
-; --- $83FC  2 across, 4 down.
-f83FC:
+; --- $83FC  Ryu, from the chest up.
+ryu_bust:
         .byte $34, $24, $16, $1A, $17, $1B, $18, $1C, $19, $1D
 
-; --- $8406  4 across, 4 down.
-f8406:
+; --- $8406  The Dragon Sword.
+the_sword:
         .byte $34, $44, $08, $0C, $10, $13, $09, $0D, $11, $14, $0A, $0E, $12, $15, $0B, $0F
         .byte $10, $13
 
-; --- $8418  8 across, 4 down.
-f8418:
+; --- $8418  Ryu's eyes.
+eyes_open:
         .byte $15, $84, $06, $06, $20, $21, $22, $23, $06, $06, $06, $06, $28, $29, $2A, $2B
         .byte $06, $06, $06, $06, $2C, $2D, $2E, $2F, $06, $06, $06, $06, $24, $25, $26, $27
         .byte $06, $06
 
-; --- $843A  8 across, 4 down.
-f843A:
+; --- $843A  Ryu's eyes, set hard.
+eyes_hard:
         .byte $15, $84, $06, $06, $20, $21, $22, $23, $06, $06, $06, $06, $30, $31, $32, $33
         .byte $06, $06, $06, $06, $34, $35, $36, $37, $06, $06, $06, $06, $24, $25, $26, $27
         .byte $06, $06
 
-; --- $845C  8 across, 4 down.
-f845C:
+; --- $845C  Ryu's eyes, closing.
+eyes_closing:
         .byte $15, $84, $06, $06, $20, $21, $22, $23, $06, $06, $06, $06, $38, $39, $3A, $3B
         .byte $06, $06, $06, $06, $2C, $3C, $3D, $3E, $06, $06, $06, $06, $24, $25, $26, $27
         .byte $06, $06
 
-; --- $847E  8 across, 4 down.
-f847E:
+; --- $847E  Ryu's eyes, shut.
+eyes_shut:
         .byte $15, $84, $06, $06, $20, $21, $22, $23, $06, $06, $06, $06, $38, $40, $41, $3B
         .byte $06, $06, $06, $06, $2C, $42, $43, $2F, $06, $06, $06, $06, $24, $25, $26, $27
         .byte $06, $06
 
-; --- $84A0  8 across, 6 down.
-f84A0:
+; --- $84A0  Irene Lew, holding a gun.
+irene_gun:
         .byte $16, $86, $06, $06, $06, $06, $1B, $1D, $06, $06, $06, $06, $06, $06, $1C, $1E
         .byte $06, $06, $06, $06, $06, $06, $1F, $44, $06, $06, $06, $06, $06, $06, $3F, $45
         .byte $06, $06, $06, $06, $06, $46, $48, $4A, $06, $06, $06, $06, $06, $47, $49, $4B
         .byte $06, $06
 
-; --- $84D2  2 across, 4 down.
-f84D2:
+; --- $84D2  A demon statue.
+demon_statue:
         .byte $33, $24, $00, $04, $01, $05, $02, $06, $03, $07
 
-; --- $84DC  3 across, 4 down.
-f84DC:
+; --- $84DC  Irene Lew, in profile.
+irene_profile:
         .byte $33, $34, $1E, $22, $25, $1F, $23, $25, $20, $24, $25, $21, $25, $25
 
-; --- $84EA  8 across, 4 down.
-f84EA:
+; --- $84EA  Walter Smith.
+walter:
         .byte $34, $84, $25, $25, $25, $3C, $3E, $43, $25, $25, $25, $25, $25, $3D, $3F, $44
         .byte $25, $25, $25, $25, $25, $40, $41, $45, $25, $25, $25, $25, $25, $25, $42, $46
         .byte $47, $48
 
-; --- $850C  8 across, 4 down.
-f850C:
+; --- $850C  Walter Smith, from behind.
+smith_back:
         .byte $17, $84, $9D, $9E, $06, $06, $06, $A2, $9D, $9D, $9F, $A0, $06, $A9, $AC, $06
         .byte $A3, $A4, $A1, $06, $06, $AA, $AD, $06, $A5, $A7, $A1, $06, $06, $AB, $AE, $06
         .byte $A6, $A8
 
-; --- $852E  8 across, 11 down.
-f852E:
+; --- $852E  The temple under the moon.
+temple_moon:
         .byte $12, $8B, $B6, $BB, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $BC, $C0, $B6, $13, $D1
         .byte $B6, $B6, $B6, $BD, $C1, $B6, $15, $16, $B6, $B6, $B7, $D0, $C2, $B6, $17, $18
         .byte $B6, $B6, $B8, $BE, $C3, $B6, $D2, $1A, $B6, $B6, $B9, $BF, $C4, $B6, $B6, $B6
@@ -593,8 +595,8 @@ f852E:
         .byte $C9, $C9, $CA, $CB, $CA, $CB, $CA, $CB, $CA, $CB, $CC, $CD, $CC, $CD, $CC, $CD
         .byte $CC, $CD, $CE, $CF, $CE, $CF, $CE, $CF, $CE, $CF
 
-; --- $8588  8 across, 11 down.
-f8588:
+; --- $8588  The field and the trees.
+field_trees:
         .byte $12, $8B, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6
         .byte $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6
         .byte $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $B6
@@ -602,8 +604,8 @@ f8588:
         .byte $C9, $C9, $CA, $CB, $CA, $CB, $CA, $CB, $CA, $CB, $CC, $CD, $CC, $CD, $CC, $CD
         .byte $CC, $CD, $CE, $CF, $CE, $CF, $CE, $CF, $CE, $CF
 
-; --- $85E2  8 across, 11 down.
-f85E2:
+; --- $85E2  The temple over the field.
+temple_field:
         .byte $12, $8B, $B6, $B6, $B6, $B6, $B6, $BB, $B6, $B6, $B6, $B6, $B6, $B6, $B6, $BC
         .byte $C0, $B6, $B6, $B6, $B6, $B6, $B6, $BD, $C1, $B6, $B6, $B6, $B6, $B6, $B7, $D0
         .byte $C2, $B6, $B6, $B6, $B6, $B6, $B8, $BE, $C3, $B6, $B6, $B6, $B6, $B6, $B9, $BF
@@ -611,80 +613,80 @@ f85E2:
         .byte $C8, $C9, $CA, $CB, $CA, $CB, $CA, $CB, $CA, $CB, $CC, $CD, $CC, $CD, $CC, $CD
         .byte $CC, $CD, $CE, $CF, $CE, $CF, $CE, $CF, $CE, $CF
 
-; --- $863C  6 across, 4 down.
-f863C:
+; --- $863C  The Jaquio.
+jaquio_face:
         .byte $38, $64, $50, $52, $53, $54, $5E, $60, $51, $57, $55, $56, $5F, $61, $25, $58
         .byte $5A, $5B, $62, $25, $25, $59, $5C, $5D, $63, $25
 
-; --- $8656  8 across, 4 down.
-f8656:
+; --- $8656  The wall, broken open.
+broken_wall:
         .byte $16, $84, $8F, $90, $8F, $8F, $90, $8F, $96, $9A, $91, $91, $91, $91, $95, $91
         .byte $97, $9B, $90, $8F, $8F, $90, $8F, $98, $9C, $06, $91, $95, $91, $91, $91, $99
         .byte $06, $06
 
-; --- $8678  4 across, 4 down.
-f8678:
+; --- $8678  Malth.
+malth:
         .byte $1A, $44, $52, $55, $59, $52, $53, $56, $5A, $5D, $54, $57, $5B, $5E, $06, $58
         .byte $5C, $06
 
-; --- $868A  6 across, 4 down.
-f868A:
+; --- $868A  A scarred face, and a man under the moon.
+fathers_fight:
         .byte $19, $64, $79, $7D, $52, $52, $87, $8B, $7A, $7E, $81, $84, $88, $8C, $7B, $7F
         .byte $82, $85, $89, $8D, $7C, $80, $83, $86, $8A, $8E
 
-; --- $86A4  4 across, 4 down.
-f86A4:
+; --- $86A4  The masked devil.
+devil_mask:
         .byte $3A, $44, $28, $2C, $30, $34, $29, $2D, $31, $35, $2A, $2E, $32, $36, $2B, $2F
         .byte $33, $37
 
-; --- $86B6  4 across, 4 down.
-f86B6:
+; --- $86B6  Ryu's father.
+father:
         .byte $17, $44, $06, $06, $06, $06, $06, $AF, $B2, $06, $06, $B0, $B3, $06, $06, $B1
         .byte $B4, $06
 
-; --- $86C8  6 across, 4 down.
-f86C8:
+; --- $86C8  Three screaming faces.
+three_faces:
         .byte $38, $64, $64, $25, $66, $6B, $25, $6F, $65, $25, $67, $6C, $25, $70, $6A, $25
         .byte $68, $6D, $25, $25, $25, $25, $69, $6E, $25, $71
 
-; --- $86E2  4 across, 4 down.
-f86E2:
+; --- $86E2  A claw.
+demon_claw:
         .byte $1D, $44, $06, $06, $4C, $4F, $06, $06, $4D, $50, $06, $06, $4E, $51, $06, $06
         .byte $06, $06
 
-; --- $86F4  8 across, 4 down.
-f86F4:
+; --- $86F4  The grass.
+grass:
         .byte $3F, $84, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25
         .byte $25, $25, $FC, $FD, $FC, $FD, $FC, $FD, $FC, $FD, $FE, $FF, $FE, $FF, $FE, $FF
         .byte $FE, $FF
 
-; --- $8716  3 across, 5 down.
-f8716:
+; --- $8716  Ryu, running.
+ryu_runs:
         .byte $11, $35, $60, $64, $06, $61, $65, $06, $62, $66, $06, $63, $67, $68, $06, $06
         .byte $69
 
-; --- $8727  6 across, 4 down.
-f8727:
+; --- $8727  Blood on the walls, and a horned shadow. No script draws this.
+bloody_hall:
         .byte $3F, $64, $7E, $7F, $83, $86, $8A, $7E, $7E, $80, $84, $87, $8B, $7E, $7E, $81
         .byte $10, $88, $8C, $7E, $7E, $82, $10, $89, $8D, $7E
 
-; --- $8741  8 across, 4 down. Shown on the sound test.
-f8741:
+; --- $8741  The word NINJA. The title, the sound test, and the ending draw this.
+title_ninja:
         .byte $5B, $84, $60, $61, $64, $67, $6A, $6E, $71, $74, $60, $62, $65, $68, $6B, $6F
         .byte $72, $75, $60, $63, $66, $69, $6C, $70, $73, $76, $1B, $1B, $1B, $1B, $1B, $1B
         .byte $1B, $1B
 
-; --- $8763  5 across, 2 down.
-f8763:
+; --- $8763  The Ninja Gaiden logo.
+title_logo:
         .byte $11, $52, $6A, $6C, $6E, $70, $72, $6B, $6D, $6F, $71, $73
 
-; --- $876F  8 across, 3 down.
-f876F:
+; --- $876F  The top of the forest, and a path.
+forest_top:
         .byte $3E, $83, $A0, $A1, $A2, $A1, $A3, $A1, $A2, $A0, $A4, $A5, $A4, $A5, $A6, $A7
         .byte $A4, $A5, $AA, $A9, $A8, $A9, $AA, $AB, $A8, $A9
 
-; --- $8789  8 across, 14 down.
-f8789:
+; --- $8789  The moon.
+great_moon:
         .byte $3E, $8E, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25
         .byte $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25
         .byte $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25
@@ -694,62 +696,62 @@ f8789:
         .byte $9D, $25, $25, $4B, $85, $91, $95, $9A, $9E, $25, $25, $4C, $8E, $92, $92, $9B
         .byte $9F, $25
 
-; --- $87FB  8 across, 4 down.
-f87FB:
+; --- $87FB  A man in gold armor and a purple cape.
+gold_armor:
         .byte $1C, $84, $06, $06, $06, $D6, $DA, $06, $06, $06, $06, $06, $D3, $D7, $DB, $06
         .byte $06, $06, $06, $06, $D4, $D8, $DC, $06, $06, $06, $06, $06, $D5, $D9, $DD, $06
         .byte $06, $06
 
-; --- $881D  8 across, 4 down.
-f881D:
+; --- $881D  A blank strip.
+blank_strip:
         .byte $12, $84, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
         .byte $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
         .byte $06, $06
 
-; --- $883F  6 across, 4 down.
-f883F:
+; --- $883F  The cell door.
+cell_door:
         .byte $32, $64, $AC, $AF, $B4, $B8, $AC, $AF, $AC, $AF, $B5, $B9, $AD, $B0, $AD, $B0
         .byte $B6, $BA, $AE, $B1, $AE, $B1, $B7, $BB, $AE, $B1
 
-; --- $8859  6 across, 4 down.
-f8859:
+; --- $8859  The cell door, open.
+cell_open:
         .byte $32, $64, $AC, $AF, $BF, $C3, $AC, $AF, $AC, $AF, $C0, $25, $AD, $B0, $AD, $B0
         .byte $C1, $25, $AE, $B1, $AE, $B1, $C2, $25, $AE, $B1
 
-; --- $8873  6 across, 4 down.
-f8873:
+; --- $8873  The stone wall.
+stone_wall:
         .byte $32, $64, $AC, $B3, $AC, $B3, $AC, $C4, $B2, $BC, $AC, $B3, $AC, $C4, $AC, $AC
         .byte $BD, $BE, $BD, $C5, $AC, $AC, $B3, $C4, $B3, $AC
 
-; --- $888D  6 across, 4 down.
-f888D:
+; --- $888D  A hole in the roof.
+roof_hole:
         .byte $56, $64, $33, $33, $36, $3A, $3E, $33, $33, $33, $37, $3B, $3F, $33, $33, $34
         .byte $38, $3C, $40, $33, $33, $35, $39, $3D, $41, $33
 
-; --- $88A7  6 across, 4 down.
-f88A7:
+; --- $88A7  Three men from the CIA, with guns.
+cia_agents:
         .byte $34, $64, $C6, $CA, $C6, $CA, $C6, $CA, $C7, $CB, $CE, $D0, $D1, $D2, $C8, $CC
         .byte $C8, $CC, $C8, $CC, $C9, $CD, $CF, $CD, $C9, $CD
 
-; --- $88C1  4 across, 4 down.
-f88C1:
+; --- $88C1  A face, looking down.
+looking_down:
         .byte $3E, $44, $D3, $25, $25, $D8, $D4, $25, $25, $D9, $D5, $25, $25, $DA, $D6, $D7
         .byte $DC, $DB
 
-; --- $88D3  8 across, 4 down.
-f88D3:
+; --- $88D3  Foster's office.
+foster_office:
         .byte $35, $84, $DE, $DD, $DD, $DD, $DD, $DD, $E4, $E7, $DE, $DD, $DD, $DD, $DD, $DD
         .byte $E4, $E7, $DE, $DD, $DD, $DD, $DD, $DD, $E5, $E8, $DE, $DF, $E0, $E1, $E2, $E3
         .byte $E6, $E9
 
-; --- $88F5  8 across, 5 down.
-f88F5:
+; --- $88F5  A close-up, in red.
+red_close:
         .byte $1F, $85, $DE, $E2, $06, $06, $06, $06, $06, $06, $DF, $E3, $06, $06, $06, $06
         .byte $06, $06, $E0, $E4, $06, $06, $06, $06, $06, $06, $E1, $E5, $06, $06, $06, $06
         .byte $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
 
-; --- $891F  8 across, 11 down.
-f891F:
+; --- $891F  The jungle.
+jungle:
         .byte $56, $8B, $00, $00, $00, $00, $00, $00, $00, $00, $01, $02, $00, $01, $03, $01
         .byte $04, $03, $01, $04, $03, $00, $00, $01, $03, $00, $05, $07, $00, $07, $05, $05
         .byte $00, $07, $06, $08, $09, $08, $06, $06, $09, $08, $0A, $0A, $0A, $0A, $0A, $0A
@@ -757,130 +759,130 @@ f891F:
         .byte $13, $17, $0C, $10, $14, $18, $0C, $10, $14, $18, $0D, $11, $15, $19, $0D, $11
         .byte $15, $19, $0E, $12, $16, $1A, $0E, $12, $16, $1A
 
-; --- $8979  4 across, 4 down.
-f8979:
+; --- $8979  Irene Lew, and a masked man.
+irene_held:
         .byte $1F, $44, $E6, $EA, $EE, $06, $E7, $EB, $EF, $F2, $E8, $EC, $F0, $F3, $E9, $ED
         .byte $F1, $F4
 
-; --- $898B  8 across, 4 down.
-f898B:
+; --- $898B  Ryu, in profile.
+ryu_profile:
         .byte $33, $84, $25, $25, $25, $25, $25, $F0, $F4, $F8, $25, $25, $25, $25, $25, $F1
         .byte $F5, $F9, $EA, $EC, $EE, $EA, $EC, $F2, $F6, $FA, $EB, $ED, $EF, $EB, $ED, $F3
         .byte $F7, $FB
 
-; --- $89AD  8 across, 4 down.
-f89AD:
+; --- $89AD  Ryu's face.
+ryu_face:
         .byte $5D, $84, $1B, $1B, $25, $28, $2C, $30, $1B, $1B, $1B, $1B, $26, $29, $2D, $31
         .byte $1B, $1B, $1B, $1B, $27, $2A, $2E, $32, $1B, $1B, $1B, $1B, $1B, $2B, $2F, $1B
         .byte $1B, $1B
 
-; --- $89CF  8 across, 4 down.
-f89CF:
+; --- $89CF  The back of Ryu's head.
+ryu_back:
         .byte $1C, $84, $06, $F5, $52, $FB, $06, $06, $06, $06, $06, $F6, $52, $FC, $06, $06
         .byte $06, $06, $06, $F7, $F9, $FD, $06, $06, $06, $06, $06, $F8, $FA, $FE, $06, $06
         .byte $06, $06
 
-; --- $89F1  6 across, 4 down.
-f89F1:
+; --- $89F1  Ryu's father, close up.
+father_wakes:
         .byte $57, $64, $1B, $1C, $20, $1B, $1B, $1B, $1B, $1D, $21, $1B, $1B, $1B, $1B, $1E
         .byte $22, $1B, $1B, $1B, $1B, $1F, $23, $24, $1B, $1B
 
-; --- $8A0B  4 across, 4 down.
-f8A0B:
+; --- $8A0B  A hand.
+a_hand:
         .byte $5D, $44, $1B, $42, $46, $1B, $1B, $43, $48, $1B, $1B, $44, $49, $1B, $1B, $45
         .byte $4A, $1B
 
-; --- $8A1D  8 across, 4 down.
-f8A1D:
+; --- $8A1D  The leaves.
+leaves:
         .byte $5C, $84, $4B, $4F, $4B, $4F, $4B, $4F, $51, $4F, $4C, $50, $4C, $4E, $4C, $50
         .byte $4C, $50, $4F, $4B, $4D, $52, $4F, $51, $4F, $4B, $50, $4C, $47, $4C, $50, $52
         .byte $50, $4C
 
-; --- $8A3F  3 across, 4 down.
-f8A3F:
+; --- $8A3F  A blank purple strip.
+blank_purple:
         .byte $33, $34, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25, $25
 
-; --- $8A4D  4 across, 4 down.
-f8A4D:
+; --- $8A4D  The night sky.
+night_sky:
         .byte $5A, $44, $53, $55, $55, $54, $55, $55, $55, $55, $54, $55, $55, $53, $56, $56
         .byte $57, $57
 
-; --- $8A5F  2 across, 4 down.
-f8A5F:
+; --- $8A5F  A demon statue, in gold.
+gold_statue:
         .byte $53, $24, $58, $5C, $59, $5D, $5A, $5E, $5B, $5F
 
-; --- $8A69  1 across, 1 down.
-f8A69:
+; --- $8A69  A small statue.
+small_statue:
         .byte $17, $11, $74
 
-; --- $8A6C  2 across, 2 down.
-f8A6C:
+; --- $8A6C  PRESENTS 1989.
+presents:
         .byte $1B, $22, $75, $76, $77, $FF
 
-; --- $8A72  8 across, 5 down.
-f8A72:
+; --- $8A72  A blank gray strip.
+blank_gray:
         .byte $1F, $85, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
         .byte $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
         .byte $06, $06, $06, $06, $06, $06, $06, $06, $06, $06
 
-; --- $8A9C  3 across, 4 down.
-f8A9C:
+; --- $8A9C  Irene Lew, and a masked man, closer.
+irene_held_close:
         .byte $1F, $34, $E6, $EA, $EE, $E7, $EB, $EF, $E8, $EC, $F0, $E9, $ED, $F1
 
-; --- $8AAA  1 across, 1 down.
-f8AAA:
+; --- $8AAA  The edge of Ryu's hair.
+ryu_edge:
         .byte $13, $11, $78
 
-; --- $8AAD  6 across, 4 down.
-f8AAD:
+; --- $8AAD  The office wall.
+office_wall:
         .byte $35, $64, $DD, $DD, $DD, $DD, $DE, $DD, $DD, $DD, $DD, $DD, $DE, $DD, $DD, $DD
         .byte $DD, $DD, $DE, $DD, $DD, $DD, $DD, $DD, $DE, $DD
 
-; --- $8AC7  8 across, 4 down.
-f8AC7:
+; --- $8AC7  The temple hall.
+temple_hall:
         .byte $4D, $84, $7D, $7D, $81, $85, $81, $89, $81, $8D, $7E, $7F, $82, $84, $82, $8A
         .byte $82, $8E, $80, $80, $83, $86, $88, $8B, $86, $8F, $7F, $7F, $84, $87, $84, $8C
         .byte $87, $90
 
-; --- $8AE9  8 across, 4 down.
-f8AE9:
+; --- $8AE9  The temple hall, and a demon.
+temple_demon:
         .byte $4D, $84, $91, $95, $98, $81, $82, $85, $9C, $9C, $92, $96, $99, $82, $84, $84
         .byte $9D, $9D, $93, $97, $9A, $83, $86, $86, $9E, $9E, $94, $87, $9B, $84, $87, $87
         .byte $9F, $9F
 
-; --- $8B0B  8 across, 4 down.
-f8B0B:
+; --- $8B0B  The office wall, and the curtains.
+office_stripes:
         .byte $35, $84, $DD, $DD, $DE, $DD, $DD, $DD, $DE, $DD, $DD, $DD, $DE, $DD, $DD, $DD
         .byte $DE, $DD, $DD, $DD, $DE, $DD, $DD, $DD, $DE, $DD, $DD, $DD, $DE, $DD, $DD, $DD
         .byte $DE, $DD
 
-; --- $8B2D  6 across, 6 down. Shown on the sound test.
-f8B2D:
+; --- $8B2D  PUSH START, and the Tecmo license.
+push_start:
         .byte $5B, $66, $1B, $1B, $1B, $1B, $1B, $1B, $1B, $A6, $A7, $A8, $A9, $1B, $1B, $1B
         .byte $1B, $1B, $1B, $1B, $A0, $A1, $A2, $A3, $A4, $A5, $1B, $AA, $AB, $AC, $AD, $1B
         .byte $AE, $AF, $B0, $B1, $B2, $B3
 
-; --- $8B53  6 across, 4 down.
-f8B53:
+; --- $8B53  PUSH START, and the Tecmo license. No script draws this.
+push_start_spare:
         .byte $5B, $64, $1B, $A6, $A7, $A8, $A9, $1B, $A0, $A1, $A2, $A3, $A4, $A5, $1B, $AA
         .byte $AB, $AC, $AD, $1B, $AE, $AF, $B0, $B1, $B2, $B3
 
-; --- $8B6D  2 across, 1 down.
-f8B6D:
+; --- $8B6D  THE END.
+the_end:
         .byte $5B, $21, $B7, $B8
 
 ; --- $8B71  Where a picture's tiles and colors are.
 ; Three sets. Tiles, then colors.
 picture_parts:
-        .word f8B7D
-        .word f937D
-        .word f9B7D
-        .word fA145
-        .word fA1C5
-        .word fA245
+        .word tiles_1
+        .word tiles_2
+        .word tiles_3
+        .word colors_1
+        .word colors_2
+        .word colors_3
 
 ; --- $8B7D  Tiles for the first set.
-f8B7D:
+tiles_1:
         .byte $00, $02, $04, $00, $01, $03, $05, $03, $06, $10, $06, $10, $10, $07, $10, $10
         .byte $11, $12, $07, $12, $07, $11, $12, $11, $13, $14, $11, $15, $16, $11, $17, $1E
         .byte $13, $14, $11, $15, $14, $13, $14, $1E, $14, $17, $14, $17, $1A, $1C, $1A, $1C
@@ -1011,7 +1013,7 @@ f8B7D:
         .byte $9C, $F8, $F8, $F8, $9D, $9F, $F8, $F8, $AC, $AE, $F8, $F8, $AD, $AF, $F8, $F8
 
 ; --- $937D  Tiles for the second set.
-f937D:
+tiles_2:
         .byte $F8, $28, $2A, $2C, $F8, $29, $2B, $2D, $F8, $80, $82, $84, $F8, $81, $83, $85
         .byte $F8, $88, $8A, $8C, $26, $89, $8B, $8D, $27, $A0, $A2, $A4, $F8, $F8, $F8, $A5
         .byte $2E, $38, $F8, $F8, $2F, $39, $3B, $F8, $86, $90, $92, $F8, $87, $91, $93, $F8
@@ -1142,7 +1144,7 @@ f937D:
         .byte $AC, $AE, $B8, $BA, $AD, $AF, $B9, $BB, $BC, $BE, $E8, $EA, $BD, $BF, $E9, $AD
 
 ; --- $9B7D  Tiles for the third set.
-f9B7D:
+tiles_3:
         .byte $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $FE, $76, $70
         .byte $71, $73, $75, $77, $72, $74, $FE, $FE, $FE, $FE, $FE, $FE, $72, $74, $FE, $FE
         .byte $FE, $FE, $FE, $FE, $75, $77, $76, $70, $FE, $FE, $FE, $FE, $FE, $FE, $68, $6A
@@ -1238,7 +1240,7 @@ f9B7D:
         .byte $A4, $B0, $A0, $F8, $A5, $B1, $A2, $F8
 
 ; --- $A145  Colors for the first set.
-fA145:
+colors_1:
         .byte $FF, $FF, $FF, $05, $55, $55, $55, $55, $55, $5A, $AA, $AA, $AA, $AF, $5C, $C5
         .byte $AA, $AA, $A5, $AA, $BF, $FE, $B3, $FE, $BF, $FE, $B3, $FE, $BF, $FE, $3F, $E2
         .byte $FF, $3F, $3B, $81, $63, $FF, $55, $55, $55, $55, $56, $66, $F9, $99, $F5, $55
@@ -1249,7 +1251,7 @@ fA145:
         .byte $55, $59, $99, $5A, $AE, $5A, $AA, $FF, $FF, $FF, $F5, $AA, $AA, $AA, $AA, $AA
 
 ; --- $A1C5  Colors for the second set.
-fA1C5:
+colors_2:
         .byte $FF, $FF, $FF, $FF, $55, $55, $55, $55, $55, $55, $55, $55, $AB, $5A, $AD, $55
         .byte $55, $A5, $55, $55, $99, $55, $55, $55, $55, $55, $66, $55, $AA, $AA, $95, $66
         .byte $56, $A8, $88, $FF, $C5, $55, $55, $55, $FF, $E9, $69, $6A, $AA, $AA, $AA, $AA
@@ -1260,7 +1262,7 @@ fA1C5:
         .byte $55, $55, $66, $6A, $AA, $AA, $AA, $AA, $55, $5A, $F5, $55, $55, $56, $55, $55
 
 ; --- $A245  Colors for the third set.
-fA245:
+colors_3:
         .byte $AA, $AA, $A5, $55, $55, $5F, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $F5, $55, $56
         .byte $55, $55, $95, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55
         .byte $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $55, $AA, $AA, $AA, $AA
@@ -1268,7 +1270,9 @@ fA245:
         .byte $F5, $55, $55, $55, $55, $99, $95, $55, $55, $55, $55, $55, $56, $66, $FF, $FF
         .byte $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $00
 
-; --- $A2A2
+; --- $A2A2  The same bytes as the end of bank 04's scripts.
+; Act VI, stage 5, from partway in, then the two scripts after it,
+; through $A7D8. Bank 04 is the copy that runs.
         .byte $04, $7F, $FF, $77, $00, $05, $1E, $03, $41, $02, $42, $02, $39, $02, $1F, $00
         .byte $10, $0B, $0F, $FF, $77, $00, $03, $00, $0D, $01, $06, $43, $FF, $EF, $00, $81
         .byte $39, $90, $91, $9E, $60, $34, $00, $90, $01, $FF, $1D, $00, $84, $39, $90, $91
@@ -1533,6 +1537,9 @@ fA245:
         .byte line_in, "   AND SEE YOU NEXT.", line_end
 .charmap $27, $27
 
+; --- $B2BE  The same songs as bank 03.
+; This bank never plays them.
+song_copy:
         .byte $8F, $0C, $FB, $0F, $F0, $10, $0C, $0C, $FB, $0F, $F0, $10, $0C, $FB, $0F, $F4
         .byte $20, $0C, $0C, $0C, $FB, $0F, $F0, $10, $0C, $FB, $0F, $F4, $20, $0C, $0C, $FB
         .byte $0F, $F0, $10, $0C, $0C, $EB, $04, $FB, $0F, $F4, $20, $89, $0C, $EC, $EC, $EB
@@ -1722,10 +1729,10 @@ fA245:
         .byte $8A, $48, $84, $0C, $8D, $48, $FF, $04, $DD, $B9, $05, $0A, $BA, $02, $2F, $BA
         .byte $07, $3A, $BA, $FF, $01, $79, $BE, $03, $D3, $BE
 
-; --- $BE78
+; --- $BE78  Empty.
         .res 101, $FF
 
-; --- $BEDD
+; --- $BEDD  More of the songs. This bank never plays them.
         .byte $48, $F7, $C8, $0E, $E0, $0F, $A4, $1C, $EC, $9F, $A4, $0D, $E5, $1E, $E4, $0E
         .byte $EC, $8E, $E4, $A4, $88, $EC, $1B, $E4, $0B, $E5, $1E, $F4, $0C, $B4, $0C, $F6
         .byte $DD, $E0, $9F, $40, $F7, $40, $F5, $40, $F7, $40, $E7, $40, $F3, $40, $F2, $40
@@ -1742,7 +1749,7 @@ fA245:
 ; --- $BF98  The rest of a call, once this bank is switched in.
 ; Then switch the other bank back.
 call_bank_06:
-        sta $0394                       ; which picture, when this call draws one
+        sta call_num                    ; which picture, when this call draws one
         txa
         pha
         rol

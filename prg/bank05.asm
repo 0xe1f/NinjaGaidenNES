@@ -50,29 +50,29 @@ new_line       = $FF   ; the next line
 ; --- $8000  Draw this picture's sprites.
 ; The call list at the end of this bank points here.
 draw_actor:
-        jmp b800F
+        jmp asked_picture
 
 ; --- $8003  Move the pictures.
 ; Called every frame, before the script's next step.
 move_actors:
-        jmp b80BE
+        jmp each_picture
 
 ; --- $8006  Draw the pictures.
 ; Called every frame, after the script's next step.
 draw_actors:
-        jmp b8176
+        jmp draw_four
 
 ; --- $8009  Read the line.
 ; Called every frame while a line is showing.
 read_text:
-        jmp b81FD
+        jmp line_pause
 
 ; --- $800C  Start the line this call was given.
 start_line:
         jmp open_line
 
 ; Which picture this call asked for.
-b800F:
+asked_picture:
         lda call_num                         ; which picture
         asl                                  ; two bytes in the list
 
@@ -91,32 +91,36 @@ use_picture:
 ; --- $8025  The next group of tiles. A high byte ends the picture.
 next_group:
         lda ($00),y
-        bpl b802A                            ; another group
+        bpl group_shift                            ; another group
         rts                                  ; the picture is done
-b802A:
+; How far this group sits, turned around when the picture faces left.
+group_shift:
         iny
         tax
         lda pixel_shift,x                    ; how far sideways this group sits
         bit draw_flags
-        bvc b8039                            ; not facing left
+        bvc facing_shift                            ; not facing left
         eor #$FF                             ; turn the shift around
         sec
         sbc #$07                             ; one tile wide
-b8039:
+; The shift, facing the way the picture faces.
+facing_shift:
         sta $05                              ; the shift, facing the way the picture faces
         clc
         adc draw_x                           ; plus where the picture stands
         sta $02
         lda draw_x_hi
-        bcc b8048
+        bcc shift_page
         eor #$01                             ; crossed 256 pixels
-b8048:
+; The shift crossed 256 pixels.
+shift_page:
         ldx $05
-        bpl b804E
+        bpl shift_back
         eor #$01                             ; a leftward shift crosses back
-b804E:
+; A leftward shift crosses back.
+shift_back:
         lsr
-        bcc b805D                            ; still on this screen
+        bcc this_side                            ; still on this screen
         tya
         lsr
         php
@@ -128,7 +132,7 @@ b804E:
         jmp next_group
 
 ; This side of the screen. The next byte is how many tiles.
-b805D:
+this_side:
         lda ($00),y
         iny
         sta $03                              ; how many tiles
@@ -156,9 +160,10 @@ next_tile:
         lda $05
         and #$07                             ; its color and flip
         lsr
-        bcc b808D                            ; not flipped
+        bcc tile_shown                            ; not flipped
         ora #$40                             ; this tile is flipped
-b808D:
+; How the tile is flipped, and that it faces with the picture.
+tile_shown:
         eor draw_flags                       ; and when the picture faces left
         sta $0202,x                          ; how it is flipped and colored
         lda $02
@@ -191,32 +196,35 @@ pick_entry:
         jmp ($000E)
 
 ; Each of the four pictures.
-b80BE:
+each_picture:
         ldx #$00
-b80C0:
+; This picture.
+one_slot:
         ldy actor_move,x
-        beq b80CC                            ; empty slot
+        beq slot_next                            ; empty slot
         txa
         pha
         jsr move_one
         pla
         tax
-b80CC:
+; The next picture.
+slot_next:
         txa
         clc
         adc #$10                             ; the next picture
         tax
         cmp #$40                             ; all four
-        bne b80C0
+        bne one_slot
         rts
 
 ; --- $80D6  Move this picture.
 ; It stays, slides, walks a path, or changes speed.
 move_one:
         dey
-        bne b80DA
+        bne not_still
         rts                                  ; it stays put
-b80DA:
+; It does not stay put.
+not_still:
         dey
         bne follow_path
 
@@ -241,14 +249,15 @@ add_place:
 ; --- $8104  Walk to the next place on its path.
 follow_path:
         dey
-        bne b8151
+        bne speed_slide
         lda $034A,x                          ; frames left on this spot
         tay
         and #$0F
-        beq b8115                            ; time to move on
+        beq path_step                            ; time to move on
         dec $034A,x                          ; one frame less
-        jmp b8126                            ; stay here
-b8115:
+        jmp path_place                            ; stay here
+; The wait ran out. Move on to the next place.
+path_step:
         tya
         lsr
         lsr
@@ -260,7 +269,7 @@ b8115:
         inc $034B,x
 
 ; Put it on this place in the path.
-b8126:
+path_place:
         lda $0349,x                          ; which path
         asl
         tay
@@ -270,14 +279,16 @@ b8126:
         sta $01
         lda $034B,x                          ; where it is on the path
         tay
-b8139:
+; A negative byte repeats the path.
+path_byte:
         lda ($00),y
-        bpl b8146                            ; a place on the path
+        bpl path_xy                            ; a place on the path
         lda #$00                             ; the path repeats
         sta $034B,x
         tay
-        jmp b8139
-b8146:
+        jmp path_byte
+; This place on the path.
+path_xy:
         iny
         sta actor_x,x                        ; where it stands
         lda ($00),y
@@ -286,7 +297,7 @@ b8146:
         rts
 
 ; Slide, and change its speed.
-b8151:
+speed_slide:
         jsr add_place                        ; slide
         jsr add_speed                        ; change the sideways speed
         inx
@@ -300,9 +311,10 @@ add_speed:
         lda $034D,x                          ; how much the speed changes
         asl
         ldy #$00
-        bcc b8167
+        bcc speed_down
         dey                                  ; the change is negative
-b8167:
+; The change in speed is negative.
+speed_down:
         ror
         adc $0349,x
         sta $0349,x
@@ -312,25 +324,27 @@ b8167:
         rts
 
 ; Leave the split sprite, then the four pictures.
-b8176:
+draw_four:
         lda #$04
         sta sprite_i                         ; leave the split sprite
         ldx #$00
-b817D:
+; This picture.
+draw_slot:
         ldy actor_move,x
-        beq b8189                            ; empty slot
+        beq draw_next                            ; empty slot
         txa
         pha
         jsr draw_one
         pla
         tax
-b8189:
+; The next picture.
+draw_next:
         txa
         clc
         adc #$10                             ; the next picture
         tax
         cpx #$40                             ; all four
-        bne b817D
+        bne draw_slot
         rts
 
 ; --- $8193  Draw this picture.
@@ -355,12 +369,12 @@ draw_one:
         lda actor_time,x
         tay
         and #$0F
-        beq b81C6                            ; time for the next pose
+        beq next_pose                            ; time for the next pose
         dec actor_time,x                     ; one frame less
-        jmp b81D4                            ; keep this pose
+        jmp which_pose                            ; keep this pose
 
 ; The pose's time ran out.
-b81C6:
+next_pose:
         tya
         lsr
         lsr
@@ -371,10 +385,10 @@ b81C6:
         inc actor_pose,x                     ; the next pose
 
 ; Draw whichever picture this pose is.
-b81D4:
+which_pose:
         lda actor_pic,x
         asl
-        bcc b81F9                            ; one picture, not a list
+        bcc one_pic                            ; one picture, not a list
         tay
         lda pose_list,y                      ; which list of poses
         sta a:$00
@@ -383,27 +397,30 @@ b81D4:
         ldy actor_pose,x
 
 ; The next pose in the list.
-b81EA:
+pose_byte:
         lda ($00),y
         cmp #$FF                             ; the list repeats
-        bne b81F8
+        bne pose_pic
         lda #$00
         tay
         sta actor_pose,x                     ; back to the first pose
-        beq b81EA
-b81F8:
+        beq pose_byte
+; That pose's picture.
+pose_pic:
         asl                                  ; that pose's picture
-b81F9:
+; Draw this one picture.
+one_pic:
         jsr use_picture
         rts
 
 ; Wait out the pause, then read or wipe.
-b81FD:
+line_pause:
         lda line_wait
-        beq b8206                            ; the wait is over
+        beq line_ready                            ; the wait is over
         dec line_wait                        ; one frame less
         rts                                  ; still waiting
-b8206:
+; The wait is over.
+line_ready:
         lda line_job                         ; 0 reads the line, 1 wipes the box
         jsr pick_entry
         .word read_char                 ; read the line
@@ -443,9 +460,10 @@ write_char:
         lda #$00                             ; end of the list, until the next letter
         sta tile_buf+5,x
         inc line_at                          ; the next space
-        bne b825C
+        bne letter_page
         inc line_at_hi
-b825C:
+; The letter crossed onto the next screen.
+letter_page:
         inc line_col                         ; one further along the row
         txa
         clc
@@ -471,9 +489,10 @@ do_skip:
         clc
         adc line_at                          ; move ahead by that many letters
         sta line_at
-        bcc b828B
+        bcc skip_page
         inc line_at_hi
-b828B:
+; The skip crossed onto the next screen.
+skip_page:
         pla
         clc
         adc line_col                         ; and that far along the row
@@ -488,9 +507,10 @@ next_row:
         clc
         adc line_at
         sta line_at
-        bcc b82A8
+        bcc row_start
         inc line_at_hi
-b82A8:
+; The start of the row.
+row_start:
         lda #$00
         sta line_col                         ; the start of the row
         jmp read_char
@@ -559,9 +579,10 @@ indent_row:
         sec                                  ; one letter further in
         adc line_at
         sta line_at
-        bcc b831F
+        bcc indent_start
         inc line_at_hi
-b831F:
+; The start of the row.
+indent_start:
         lda #$00
         sta line_col                         ; the start of the row
         jmp read_char
@@ -593,14 +614,15 @@ clear_column:
         ldx wipe_col
         inx
         cpx #$9D                             ; the right side of the box
-        bcc b838F                            ; the box is not clear yet
+        bcc wipe_next                            ; the box is not clear yet
         lda line_i
         clc
         adc line_ptr                         ; the rest of the line
         sta line_ptr
-        bcc b8374
+        bcc box_clear
         inc line_ptr+1
-b8374:
+; The box is clear. Read the rest of the line.
+box_clear:
         lda #$00
         sta line_job                         ; read letters again
         sta line_col
@@ -611,7 +633,8 @@ b8374:
         sta line_at
         lda speed_copy                       ; the delay between letters
         sta line_speed
-b838F:
+; The next column.
+wipe_next:
         stx wipe_col                         ; the next column
         jsr hand_text
         rts
@@ -619,24 +642,26 @@ b838F:
 ; --- $8396  The tile for this letter.
 letter_tile:
         cmp #$20
-        bcc b83A0                            ; leave it
+        bcc tile_ready                            ; leave it
         cmp #$40
-        bcs b83A0                            ; a letter stays as it is
+        bcs tile_ready                            ; a letter stays as it is
         adc #$60                             ; a space or a mark
-b83A0:
+; The tile for the letter, and a blank above it.
+tile_ready:
         ldy #blank_tile                      ; the blank above the letter
         rts
 
 ; --- $83A3  Hand the letters to the screen.
 hand_text:
         lda tiles_handed
-        bne b83B3                            ; already handed over this frame
+        bne text_sent                            ; already handed over this frame
         lda #$03
-        sta $2C                              ; the letters are at $03C3
-        lda #$C3
+        sta z:packet+1
+        lda #<tile_buf
         sta z:packet                         ; the letters just written
         inc tiles_handed                     ; this frame's tiles are handed over
-b83B3:
+; This frame's letters were already handed over.
+text_sent:
         rts
 
 ; --- $83B4  Point at that line, at the top left of the text box.
@@ -669,16 +694,16 @@ pixel_shift:
 ; --- $8408  Which pictures a pose steps through.
 pose_list:
         .word s8430
-        .word s8433
-        .word s8436
+        .word irene_poses
+        .word walter_poses
         .word s843F
         .word s8457
         .word s845A
         .word s845D
         .word s8460
-        .word s8463
+        .word jaquio_poses
         .word s8466
-        .word s846A
+        .word irene_later
         .word s846D
         .word s8470
         .word s847A
@@ -690,65 +715,83 @@ pose_list:
         .word s84A1
 
 ; Each list ends with $FF and then repeats.
+; Pictures $08 and $09.
 s8430:
         .byte $08, $09, $FF
 
-; Irene Lew.
-s8433:
+; Irene Lew. Pictures $17 and $18.
+irene_poses:
         .byte $17, $18, $FF
 
-; Walter Smith.
-s8436:
+; Walter Smith. Pictures $19 and $1A.
+walter_poses:
         .byte $19, $1A, $19, $19, $1A, $19, $1A, $1A, $FF
+; Pictures $2C, then $2D, then $2E.
 s843F:
         .byte $2C, $2C, $2C, $2D, $2D, $2D, $2D, $2E, $2E, $2E, $2E, $2E, $2E, $2E, $2E, $2E
         .byte $2E, $2E, $2E, $2E, $2E, $2E, $2E, $FF
+; Pictures $30 and $31.
 s8457:
         .byte $30, $31, $FF
+; Pictures $39 and $3A.
 s845A:
         .byte $39, $3A, $FF
+; Pictures $1F and $21.
 s845D:
         .byte $1F, $21, $FF
+; Pictures $20 and $21.
 s8460:
         .byte $20, $21, $FF
 
-; The Jaquio.
-s8463:
+; The Jaquio. Pictures $26 and $27.
+jaquio_poses:
         .byte $26, $27, $FF
+; Pictures $34, $35, and $4D.
 s8466:
         .byte $34, $35, $4D, $FF
 
-; Irene Lew.
-s846A:
+; Irene Lew. Pictures $23 and $24.
+irene_later:
         .byte $23, $24, $FF
+; Pictures $28 and $29.
 s846D:
         .byte $28, $29, $FF
+; Pictures $46, then $47, then $48.
 s8470:
         .byte $46, $46, $46, $46, $47, $47, $48, $48, $47, $FF
+; Pictures $57 and $4D.
 s847A:
         .byte $57, $4D, $FF
+; Pictures $58 through $5D, then $62, $63, and $64.
 s847D:
         .byte $58, $59, $5A, $5B, $5C, $5D, $62, $63, $64, $FF
+; Pictures $62, $63, and $64.
 s8487:
         .byte $62, $63, $64, $FF
+; Pictures $65, $66, $67, and $68.
 s848B:
         .byte $65, $66, $67, $68, $FF
+; Pictures $58 through $5D, then $62, $63, and $64.
 s8490:
         .byte $58, $59, $5A, $5B, $5C, $5D, $62, $63, $64, $FF
+; Pictures $58, $59, $5D, then $62, $63, and $64.
 s849A:
         .byte $58, $59, $5D, $62, $63, $64, $FF
+; Pictures $58 through $5D, then $62, $63, and $64.
 s84A1:
         .byte $58, $59, $5A, $5B, $5C, $5D, $62, $63, $64, $FF
 
 ; --- $84AB  Where a picture walks.
 picture_path:
-        .word s84AF
-        .word s84B4
+        .word walk_right
+        .word walk_left
 
 ; Pairs of where it stands and how high. $FF starts the path over.
-s84AF:
+; It steps to the right.
+walk_right:
         .byte $74, $2A, $78, $2D, $FF
-s84B4:
+; It steps to the left.
+walk_left:
         .byte $08, $2A, $04, $2D, $FF
 
 ; --- $84B9  The pictures drawn as sprites.
@@ -778,10 +821,10 @@ actor_pics:
         .word s87C9
         .word s87ED
         .word s8813
-        .word s884D
-        .word s885B
-        .word s8869
-        .word s8887
+        .word irene_a
+        .word irene_b
+        .word walter_a
+        .word walter_b
         .word s88A5
         .word s88CD
         .word s8901
@@ -790,11 +833,11 @@ actor_pics:
         .word s8971
         .word s897B
         .word s8985
-        .word s8987
-        .word s89CD
+        .word irene_c
+        .word irene_d
         .word s8A13
-        .word s8A59
-        .word s8A73
+        .word jaquio_a
+        .word jaquio_b
         .word s8A8D
         .word s8AA9
         .word s8AC5
@@ -860,35 +903,44 @@ actor_pics:
         .word s9263
         .word s9283
         .word s92A1
+; Picture $00.
 s858B:
         .byte $13, $03, $03, $00, $0A, $08, $1A, $20, $2A, $04, $03, $02, $0A, $0A, $1A, $22
         .byte $2A, $05, $01, $0C, $1A, $80
+; Picture $01.
 s85A1:
         .byte $13, $03, $02, $04, $10, $0E, $20, $04, $02, $06, $10, $24, $20, $80
+; Picture $02.
 s85AF:
         .byte $13, $02, $03, $10, $08, $18, $18, $32, $28, $03, $03, $12, $08, $1A, $18, $34
         .byte $28, $04, $03, $14, $08, $1C, $18, $36, $28, $80
+; Picture $03.
 s85C9:
         .byte $13, $03, $03, $16, $0A, $1E, $1A, $60, $2A, $04, $03, $40, $0A, $48, $1A, $62
         .byte $2A, $05, $02, $42, $0A, $4A, $1A, $80
+; Picture $04.
 s85E1:
         .byte $13, $02, $02, $18, $18, $32, $28, $03, $03, $44, $08, $1A, $18, $34, $28, $04
         .byte $03, $46, $08, $4C, $18, $36, $28, $05, $02, $50, $08, $4E, $18, $80
+; Picture $05.
 s85FF:
         .byte $13, $02, $01, $58, $22, $03, $03, $52, $12, $5A, $22, $64, $32, $04, $02, $54
         .byte $12, $5C, $22, $05, $01, $56, $12, $80
+; Picture $06.
 s8617:
         .byte $1E, $08, $01, $36, $03, $00, $01, $34, $03, $01, $03, $32, $01, $3A, $15, $46
         .byte $23, $02, $04, $30, $01, $4E, $15, $44, $23, $4C, $33, $03, $06, $52, $05, $18
         .byte $17, $5A, $15, $42, $23, $4A, $33, $62, $4B, $04, $05, $50, $05, $58, $11, $40
         .byte $23, $48, $33, $60, $4B, $05, $05, $22, $01, $2A, $11, $FC, $23, $1E, $33, $3E
         .byte $4B, $06, $05, $20, $03, $28, $13, $FC, $23, $1C, $33, $3C, $4B, $80
+; Picture $07.
 s8665:
         .byte $1E, $09, $01, $36, $02, $07, $01, $34, $02, $06, $03, $32, $00, $3A, $14, $46
         .byte $22, $05, $04, $30, $00, $38, $14, $44, $22, $4C, $32, $04, $06, $26, $04, $1A
         .byte $16, $2E, $14, $42, $22, $4A, $32, $62, $4A, $03, $05, $24, $04, $2C, $10, $40
         .byte $22, $48, $32, $60, $4A, $02, $05, $22, $00, $2A, $10, $FC, $22, $1E, $32, $3E
         .byte $4A, $01, $05, $20, $02, $28, $12, $FC, $22, $1C, $32, $3C, $4A, $80
+; Picture $08.
 s86B3:
         .byte $1C, $00, $02, $00, $10, $08, $20, $01, $02, $02, $10, $0A, $20, $02, $02, $04
         .byte $10, $0C, $20, $03, $03, $06, $10, $0E, $20, $20, $30, $20, $01, $36, $48, $04
@@ -896,107 +948,130 @@ s86B3:
         .byte $10, $21, $01, $18, $20, $22, $01, $1A, $20, $23, $01, $1C, $20, $24, $01, $1E
         .byte $20, $09, $02, $24, $30, $32, $48, $0A, $02, $26, $30, $34, $48, $0B, $01, $30
         .byte $30, $80
+; Picture $09.
 s8705:
         .byte $1C, $02, $02, $28, $10, $38, $20, $03, $02, $2A, $10, $3A, $20, $04, $02, $2C
         .byte $10, $3C, $20, $05, $04, $2E, $10, $3E, $20, $68, $30, $60, $48, $06, $03, $40
         .byte $20, $48, $30, $62, $48, $07, $02, $42, $20, $4A, $30, $80
+; Picture $0A.
 s8731:
         .byte $1E, $02, $01, $72, $18, $03, $03, $7A, $0C, $74, $18, $7C, $2C, $04, $02, $76
         .byte $1A, $7E, $2C, $80
+; Picture $0B.
 s8745:
         .byte $1E, $02, $02, $64, $18, $6C, $28, $03, $02, $66, $1C, $6E, $2C, $04, $02, $70
         .byte $1A, $78, $2A, $80
+; Picture $0C.
 s8759:
         .byte $1E, $01, $01, $80, $26, $02, $01, $82, $26, $03, $01, $84, $26, $04, $01, $86
         .byte $26, $05, $01, $90, $26, $80
+; Picture $0D.
 s876F:
         .byte $14, $01, $01, $90, $30, $02, $01, $92, $30, $03, $01, $98, $30, $04, $01, $9A
         .byte $30, $04, $01, $38, $10, $06, $01, $3A, $20, $07, $01, $3C, $20, $80
+; Picture $0E.
 s878D:
         .byte $14, $03, $02, $35, $10, $61, $20, $04, $02, $37, $10, $63, $20, $80
+; Picture $0F.
 s879B:
         .byte $15, $03, $01, $37, $27, $04, $01, $35, $27, $80
+; Picture $10.
 s87A5:
         .byte $15, $03, $01, $5F, $27, $04, $01, $5D, $27, $80
+; Picture $11.
 s87AF:
         .byte $15, $03, $01, $9D, $26, $04, $01, $9F, $26, $80
+; Picture $12.
 s87B9:
         .byte $15, $03, $01, $8B, $27, $04, $01, $89, $27, $80
+; Picture $13.
 s87C3:
         .byte $1A, $12, $01, $6B, $1E, $80
+; Picture $14.
 s87C9:
         .byte $10, $04, $10, $FE, $60, $FE, $60, $FE, $60, $FE, $60, $FE, $60, $FE, $60, $FE
         .byte $60, $FE, $60, $FE, $48, $FE, $48, $FE, $48, $FE, $48, $FE, $48, $FE, $48, $FE
         .byte $48, $FE, $48, $80
+; Picture $15.
 s87ED:
         .byte $1E, $02, $01, $08, $30, $03, $03, $0E, $22, $00, $18, $0A, $30, $04, $04, $10
         .byte $22, $16, $34, $02, $18, $14, $32, $05, $04, $12, $22, $0C, $30, $04, $18, $06
         .byte $28, $06, $01, $08, $31, $80
+; Picture $16.
 s8813:
         .byte $15, $00, $01, $B0, $30, $01, $01, $B2, $30, $02, $04, $C0, $00, $C8, $10, $A0
         .byte $22, $B4, $30, $03, $04, $C2, $00, $FE, $10, $A2, $22, $B6, $30, $04, $04, $C4
         .byte $00, $FE, $10, $A4, $22, $E0, $30, $05, $04, $C6, $00, $CA, $10, $A6, $22, $E2
         .byte $30, $06, $01, $CC, $30, $07, $01, $CE, $30, $80
 
-; Irene Lew.
-s884D:
+; Irene Lew. Picture $17.
+irene_a:
         .byte $13, $03, $02, $5F, $16, $67, $36, $04, $02, $71, $36, $73, $32, $80
 
-; Irene Lew.
-s885B:
+; Irene Lew. Picture $18.
+irene_b:
         .byte $13, $03, $02, $5F, $16, $75, $36, $04, $02, $77, $36, $7F, $32, $80
 
-; Walter Smith.
-s8869:
+; Walter Smith. Picture $19.
+walter_a:
         .byte $14, $01, $02, $C0, $20, $70, $30, $02, $02, $C2, $20, $D2, $30, $03, $02, $C4
         .byte $20, $D4, $30, $04, $02, $C6, $20, $D6, $30, $05, $01, $D0, $20, $80
 
-; Walter Smith.
-s8887:
+; Walter Smith. Picture $1A.
+walter_b:
         .byte $14, $01, $02, $C8, $20, $70, $30, $02, $02, $CA, $20, $DA, $30, $03, $02, $CC
         .byte $20, $DC, $30, $04, $02, $CE, $20, $DE, $30, $05, $01, $D8, $20, $80
+; Picture $1B.
 s88A5:
         .byte $12, $01, $02, $B8, $20, $E0, $30, $02, $03, $A8, $10, $BA, $20, $EC, $30, $03
         .byte $03, $AA, $10, $BC, $20, $EE, $30, $04, $02, $AC, $10, $BE, $20, $05, $02, $AE
         .byte $10, $E8, $20, $06, $01, $EA, $22, $80
+; Picture $1C.
 s88CD:
         .byte $12, $04, $18, $FE, $08, $FE, $08, $FE, $08, $FE, $08, $FE, $08, $FE, $08, $FE
         .byte $08, $FE, $08, $FE, $18, $FE, $18, $FE, $18, $FE, $18, $FE, $18, $FE, $18, $FE
         .byte $18, $FE, $18, $FE, $28, $FE, $28, $FE, $28, $FE, $28, $FE, $28, $FE, $28, $FE
         .byte $28, $FE, $28, $80
+; Picture $1D.
 s8901:
         .byte $17, $00, $03, $42, $1A, $4A, $2A, $62, $3A, $01, $04, $10, $10, $44, $1A, $4C
         .byte $2A, $64, $3A, $02, $06, $12, $00, $1A, $10, $46, $22, $32, $20, $50, $32, $3A
         .byte $30, $03, $04, $14, $00, $1C, $10, $34, $20, $3C, $30, $04, $05, $52, $0A, $16
         .byte $00, $1E, $10, $36, $20, $3C, $30, $05, $04, $54, $0A, $40, $00, $48, $10, $60
         .byte $20, $06, $02, $68, $20, $FC, $34, $0A, $01, $56, $32, $80
+; Picture $1E.
 s894D:
         .byte $14, $10, $01, $F6, $20, $0E, $01, $EC, $20, $03, $01, $F6, $20, $04, $01, $EC
         .byte $20, $11, $01, $F6, $20, $0D, $01, $EC, $20, $80
+; Picture $1F.
 s8967:
         .byte $18, $03, $01, $66, $20, $04, $01, $70, $20, $80
+; Picture $20.
 s8971:
         .byte $18, $03, $01, $3E, $20, $04, $01, $68, $20, $80
+; Picture $21.
 s897B:
         .byte $18, $03, $01, $6A, $20, $04, $01, $6C, $20, $80
+; Picture $22.
 s8985:
         .byte $1F, $80
 
-; Irene Lew.
-s8987:
+; Irene Lew. Picture $23.
+irene_c:
         .byte $1F, $01, $02, $28, $00, $80, $12, $02, $04, $2A, $00, $D8, $12, $8A, $22, $A2
         .byte $32, $12, $01, $E2, $2C, $03, $04, $2C, $00, $DA, $12, $8C, $22, $A4, $32, $04
         .byte $04, $2E, $00, $DC, $12, $8E, $22, $A6, $32, $05, $05, $38, $00, $DE, $12, $98
         .byte $22, $B2, $34, $B0, $32, $06, $04, $3A, $00, $92, $12, $9A, $22, $A0, $32, $07
         .byte $02, $3C, $00, $94, $12, $80
 
-; Irene Lew.
-s89CD:
+; Irene Lew. Picture $24.
+irene_d:
         .byte $1F, $01, $02, $28, $00, $80, $12, $02, $04, $2A, $00, $D8, $12, $8A, $22, $A2
         .byte $32, $12, $01, $E4, $2C, $03, $04, $2C, $00, $DA, $12, $8C, $22, $A4, $32, $04
         .byte $04, $2E, $00, $DC, $12, $8E, $22, $A6, $32, $05, $05, $38, $00, $DE, $12, $98
         .byte $22, $B2, $34, $B0, $32, $06, $04, $3A, $00, $92, $12, $9A, $22, $A0, $32, $07
         .byte $02, $3C, $00, $94, $12, $80
+; Picture $25.
 s8A13:
         .byte $1F, $01, $02, $28, $00, $80, $12, $02, $04, $2A, $00, $D8, $12, $8A, $22, $A2
         .byte $32, $12, $01, $E6, $2C, $03, $04, $2C, $00, $DA, $12, $8C, $22, $A4, $32, $04
@@ -1004,94 +1079,118 @@ s8A13:
         .byte $22, $B2, $34, $B0, $32, $06, $04, $3A, $00, $92, $12, $9A, $22, $A0, $32, $07
         .byte $02, $3C, $00, $94, $12, $80
 
-; The Jaquio.
-s8A59:
+; The Jaquio. Picture $26.
+jaquio_a:
         .byte $18, $02, $02, $C0, $20, $C8, $30, $03, $02, $C2, $20, $CA, $30, $04, $02, $C4
         .byte $20, $CC, $30, $05, $02, $C6, $20, $CE, $30, $80
 
-; The Jaquio.
-s8A73:
+; The Jaquio. Picture $27.
+jaquio_b:
         .byte $18, $02, $02, $D0, $20, $D8, $30, $03, $02, $D2, $20, $DA, $30, $04, $02, $D4
         .byte $20, $DC, $30, $05, $02, $D6, $20, $DE, $30, $80
+; Picture $28.
 s8A8D:
         .byte $17, $01, $01, $DC, $10, $02, $02, $DE, $10, $E4, $30, $03, $01, $E6, $30, $04
         .byte $01, $EC, $30, $05, $01, $F4, $10, $06, $01, $F6, $10, $80
+; Picture $29.
 s8AA9:
         .byte $17, $01, $01, $DC, $10, $02, $02, $DE, $10, $F0, $30, $03, $01, $F2, $30, $04
         .byte $01, $EE, $30, $05, $01, $F4, $10, $06, $01, $F6, $10, $80
+; Picture $2A.
 s8AC5:
         .byte $15, $01, $02, $AE, $22, $EC, $32, $02, $02, $B8, $22, $FA, $32, $1A, $01, $F0
         .byte $16, $1B, $01, $F2, $16, $12, $01, $F4, $26, $03, $03, $A8, $10, $BA, $24, $EE
         .byte $34, $04, $03, $AA, $10, $BC, $24, $E4, $34, $05, $03, $AC, $10, $BE, $24, $FA
         .byte $32, $06, $02, $E8, $22, $FA, $32, $07, $02, $EA, $22, $E6, $32, $80
+; Picture $2B.
 s8B03:
         .byte $17, $02, $01, $A0, $22, $03, $01, $A2, $22, $04, $01, $A4, $22, $05, $01, $A6
         .byte $22, $06, $01, $B0, $22, $80
+; Picture $2C.
 s8B19:
         .byte $17, $04, $01, $C8, $20, $80
+; Picture $2D.
 s8B1F:
         .byte $17, $04, $02, $C0, $10, $C8, $20, $80
+; Picture $2E.
 s8B27:
         .byte $17, $03, $02, $C2, $10, $CA, $20, $04, $02, $C4, $10, $CC, $20, $05, $02, $C6
         .byte $10, $CE, $20, $80
+; Picture $2F.
 s8B3B:
         .byte $19, $00, $01, $1A, $4A, $01, $02, $14, $32, $1C, $4A, $02, $04, $0E, $10, $26
         .byte $20, $16, $32, $1E, $4A, $13, $01, $10, $02, $03, $05, $00, $64, $08, $00, $20
         .byte $10, $40, $32, $48, $4A, $04, $05, $02, $60, $0A, $00, $22, $10, $42, $32, $4A
         .byte $4A, $14, $01, $12, $20, $15, $01, $18, $42, $05, $05, $0C, $00, $24, $10, $30
         .byte $12, $44, $32, $4C, $4A, $06, $02, $46, $32, $4E, $4A, $07, $01, $32, $4A, $80
+; Picture $30.
 s8B8B:
         .byte $19, $05, $01, $04, $60, $80
+; Picture $31.
 s8B91:
         .byte $19, $05, $01, $06, $60, $80
+; Picture $32.
 s8B97:
         .byte $1B, $00, $01, $78, $26, $01, $01, $7A, $26, $02, $01, $7C, $26, $03, $01, $7E
         .byte $26, $04, $01, $D0, $26, $05, $01, $D2, $26, $06, $01, $D4, $26, $07, $01, $D6
         .byte $26, $80
+; Picture $33.
 s8BB9:
         .byte $1A, $08, $01, $BE, $30, $00, $02, $B6, $20, $E8, $30, $01, $02, $E0, $20, $EA
         .byte $32, $02, $02, $E2, $20, $EC, $32, $03, $04, $A0, $00, $A8, $10, $E4, $22, $EE
         .byte $36, $04, $04, $A2, $00, $AA, $10, $E6, $24, $CC, $34, $05, $04, $A4, $00, $AC
         .byte $12, $F0, $24, $FA, $34, $06, $05, $A6, $00, $CA, $16, $AE, $12, $F2, $24, $F6
         .byte $34, $07, $03, $B0, $00, $B8, $14, $F4, $20, $09, $02, $B2, $00, $BA, $14, $80
+; Picture $34.
 s8C09:
         .byte $1D, $03, $01, $20, $18, $04, $01, $20, $19, $80
+; Picture $35.
 s8C13:
         .byte $1D, $03, $01, $22, $18, $04, $01, $22, $19, $80
+; Picture $36.
 s8C1D:
         .byte $1A, $03, $01, $C3, $1E, $04, $01, $C3, $1F, $80
+; Picture $37.
 s8C27:
         .byte $1A, $01, $02, $C4, $22, $CE, $32, $16, $01, $6B, $34, $02, $02, $C6, $22, $FE
         .byte $32, $03, $04, $B4, $00, $BC, $10, $D0, $22, $D8, $32, $04, $04, $7A, $00, $FE
         .byte $10, $D2, $22, $DA, $32, $05, $04, $74, $00, $7C, $14, $D4, $22, $DC, $34, $06
         .byte $04, $76, $00, $7E, $12, $D6, $22, $DE, $34, $80
+; Picture $38.
 s8C61:
         .byte $18, $17, $01, $EC, $30, $02, $02, $BA, $22, $E0, $32, $03, $03, $EE, $20, $BC
         .byte $22, $E2, $32, $04, $04, $AA, $10, $F4, $20, $BE, $22, $E4, $32, $05, $03, $AC
         .byte $10, $E8, $22, $E6, $32, $06, $03, $AE, $10, $EA, $24, $F0, $34, $07, $03, $B8
         .byte $10, $F6, $30, $F2, $34, $80
+; Picture $39.
 s8C97:
         .byte $1F, $02, $01, $82, $14, $03, $01, $84, $14, $12, $01, $B6, $28, $18, $01, $9E
         .byte $20, $19, $01, $C8, $20, $05, $02, $90, $14, $B2, $30, $06, $01, $D0, $32, $07
         .byte $01, $D2, $32, $80
+; Picture $3A.
 s8CBB:
         .byte $1F, $02, $01, $82, $14, $03, $01, $84, $14, $12, $01, $B4, $28, $18, $01, $9E
         .byte $20, $19, $01, $C8, $20, $05, $02, $90, $14, $B2, $30, $06, $01, $D0, $32, $07
         .byte $01, $D2, $32, $80
+; Picture $3B.
 s8CDF:
         .byte $1F, $04, $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $05, $04, $FA, $00, $FA
         .byte $10, $FA, $20, $FA, $30, $06, $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $07
         .byte $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $80
+; Picture $3C.
 s8D09:
         .byte $1F, $02, $01, $D4, $14, $03, $01, $D6, $14, $12, $01, $E0, $28, $18, $01, $CA
         .byte $20, $19, $01, $CC, $20, $05, $02, $CE, $14, $B2, $30, $06, $01, $D0, $32, $07
         .byte $01, $D2, $32, $80
+; Picture $3D.
 s8D2D:
         .byte $17, $02, $03, $08, $10, $20, $20, $28, $30, $03, $04, $00, $00, $0A, $10, $22
         .byte $20, $2A, $30, $04, $04, $02, $00, $0C, $10, $24, $20, $2C, $30, $05, $03, $0E
         .byte $10, $26, $20, $2E, $30, $06, $03, $18, $10, $30, $20, $38, $30, $80
+; Picture $3E.
 s8D5B:
         .byte $17, $03, $01, $04, $22, $04, $01, $06, $22, $80
+; Picture $3F.
 s8D65:
         .byte $19, $01, $01, $1A, $5A, $02, $03, $58, $18, $14, $4A, $1C, $5A, $17, $01, $56
         .byte $0A, $03, $06, $34, $04, $54, $10, $5A, $20, $76, $30, $16, $4A, $1E, $5A, $04
@@ -1099,9 +1198,11 @@ s8D65:
         .byte $5A, $05, $08, $62, $02, $64, $10, $66, $12, $70, $20, $72, $22, $74, $32, $42
         .byte $4A, $4A, $5A, $06, $02, $44, $4A, $4C, $5A, $07, $02, $46, $4A, $4E, $5A, $09
         .byte $01, $32, $5A, $80
+; Picture $40.
 s8DB9:
         .byte $1A, $01, $01, $C0, $20, $03, $01, $9E, $32, $04, $01, $C8, $32, $06, $01, $C2
         .byte $20, $80
+; Picture $41.
 s8DCB:
         .byte $19, $0F, $01, $AE, $00, $0E, $01, $B8, $10, $00, $01, $EE, $30, $01, $01, $BA
         .byte $20, $02, $01, $BC, $20, $03, $01, $BE, $20, $04, $03, $B0, $10, $E8, $20, $B4
@@ -1109,53 +1210,66 @@ s8DCB:
         .byte $10, $E6, $30, $09, $03, $DA, $00, $CC, $10, $F0, $30, $0A, $04, $DC, $00, $CE
         .byte $10, $C8, $20, $F2, $30, $0B, $03, $DE, $00, $D8, $10, $F4, $30, $11, $01, $F6
         .byte $30, $80
+; Picture $42.
 s8E1D:
         .byte $1B, $03, $02, $D8, $10, $F0, $20, $04, $02, $DA, $10, $F2, $20, $05, $02, $DC
         .byte $10, $F4, $20, $80
+; Picture $43.
 s8E31:
         .byte $1D, $00, $02, $40, $00, $48, $12, $01, $03, $42, $00, $4A, $12, $62, $22, $02
         .byte $04, $44, $00, $4C, $12, $64, $22, $6C, $32, $03, $04, $46, $00, $4E, $12, $66
         .byte $22, $6E, $32, $04, $04, $50, $00, $58, $12, $70, $22, $78, $32, $05, $04, $52
         .byte $00, $5A, $12, $72, $22, $7A, $32, $06, $04, $54, $00, $5C, $12, $74, $22, $7C
         .byte $32, $07, $03, $56, $00, $5E, $12, $7E, $32, $80
+; Picture $44.
 s8E7B:
         .byte $1D, $08, $01, $16, $32, $00, $03, $40, $00, $48, $12, $1E, $34, $01, $03, $42
         .byte $00, $4A, $12, $62, $22, $02, $04, $44, $00, $4C, $12, $64, $22, $6C, $32, $03
         .byte $04, $46, $00, $4E, $12, $66, $22, $6E, $32, $04, $04, $50, $00, $58, $12, $70
         .byte $22, $78, $32, $05, $04, $52, $00, $5A, $12, $72, $22, $7A, $32, $06, $04, $54
         .byte $00, $5C, $12, $74, $22, $7C, $32, $07, $03, $56, $00, $5E, $12, $7E, $32, $80
+; Picture $45.
 s8ECB:
         .byte $19, $01, $04, $CD, $10, $E5, $20, $CB, $22, $ED, $30, $02, $05, $C7, $00, $CF
         .byte $10, $FD, $12, $E7, $22, $EF, $32, $03, $04, $D1, $00, $D9, $12, $F1, $22, $C5
         .byte $32, $04, $03, $DB, $10, $F3, $22, $FB, $30, $05, $05, $D5, $00, $DD, $10, $F5
         .byte $22, $D3, $30, $D7, $32, $06, $03, $DF, $10, $F7, $20, $C9, $30, $80
+; Picture $46.
 s8F09:
         .byte $19, $04, $01, $B6, $24, $80
+; Picture $47.
 s8F0F:
         .byte $19, $04, $01, $E0, $24, $80
+; Picture $48.
 s8F15:
         .byte $19, $04, $01, $E2, $24, $80
+; Picture $49.
 s8F1B:
         .byte $1F, $03, $01, $43, $00, $04, $01, $45, $10, $05, $01, $47, $10, $80
+; Picture $4A.
 s8F29:
         .byte $1D, $00, $04, $28, $00, $80, $12, $88, $22, $A0, $32, $01, $04, $2A, $00, $82
         .byte $12, $8A, $22, $A2, $32, $02, $04, $2C, $00, $84, $12, $8C, $22, $A4, $32, $03
         .byte $04, $2E, $00, $86, $12, $8E, $22, $A6, $32, $04, $04, $38, $00, $90, $12, $98
         .byte $22, $B0, $32, $05, $04, $3A, $00, $92, $12, $9A, $22, $B2, $32, $06, $03, $3C
         .byte $00, $94, $12, $9C, $22, $07, $01, $96, $12, $80
+; Picture $4B.
 s8F73:
         .byte $1D, $00, $04, $28, $00, $80, $12, $88, $22, $A0, $32, $01, $04, $2A, $00, $82
         .byte $12, $8A, $22, $A2, $32, $02, $04, $2C, $00, $84, $12, $24, $22, $A4, $32, $03
         .byte $04, $2E, $00, $86, $12, $26, $22, $A6, $32, $04, $04, $38, $00, $90, $12, $30
         .byte $22, $B0, $32, $05, $04, $3A, $00, $92, $12, $32, $22, $B2, $32, $06, $03, $3C
         .byte $00, $94, $12, $9C, $22, $07, $01, $96, $12, $80
+; Picture $4C.
 s8FBD:
         .byte $17, $02, $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $03, $04, $FA, $00, $FA
         .byte $10, $FA, $20, $FA, $30, $04, $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $05
         .byte $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $06, $04, $FA, $00, $FA, $10, $FA
         .byte $20, $FA, $30, $80
+; Picture $4D.
 s8FF1:
         .byte $11, $80
+; Picture $4E.
 s8FF3:
         .byte $12, $00, $04, $20, $00, $28, $10, $30, $20, $2A, $30, $01, $04, $22, $00, $FC
         .byte $10, $FC, $20, $2C, $30, $02, $04, $24, $00, $FC, $10, $FC, $20, $2E, $30, $03
@@ -1163,82 +1277,108 @@ s8FF3:
         .byte $20, $38, $31, $05, $04, $24, $01, $FC, $10, $FC, $20, $2E, $31, $06, $04, $22
         .byte $01, $FC, $10, $FC, $20, $2C, $31, $07, $04, $20, $01, $28, $11, $30, $21, $2A
         .byte $31, $80
+; Picture $4F.
 s9045:
         .byte $1D, $00, $02, $40, $00, $48, $12, $01, $03, $42, $00, $4A, $12, $62, $22, $02
         .byte $04, $44, $00, $4C, $12, $F4, $22, $F6, $32, $03, $04, $46, $00, $4E, $12, $66
         .byte $22, $6E, $32, $04, $04, $50, $00, $58, $12, $70, $22, $78, $32, $05, $04, $52
         .byte $00, $5A, $12, $72, $22, $7A, $32, $06, $04, $54, $00, $5C, $12, $74, $22, $7C
         .byte $32, $07, $03, $56, $00, $5E, $12, $7E, $32, $80
+; Picture $50.
 s908F:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $8C, $18, $07, $01, $8E
         .byte $18, $80
+; Picture $51.
 s90B1:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A0, $18, $07, $01, $A2
         .byte $18, $80
+; Picture $52.
 s90D3:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A4, $18, $07, $01, $A6
         .byte $18, $80
+; Picture $53.
 s90F5:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A8, $18, $07, $01, $AA
         .byte $18, $80
+; Picture $54.
 s9117:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $AC, $18, $07, $01, $AE
         .byte $18, $80
+; Picture $55.
 s9139:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $F4, $18, $07, $01, $F6
         .byte $18, $80
+; Picture $56.
 s915B:
         .byte $10, $04, $01, $DD, $22, $05, $01, $DF, $22, $80
+; Picture $57.
 s9165:
         .byte $12, $25, $01, $E2, $10, $22, $01, $E2, $10, $80
+; Picture $58.
 s916F:
         .byte $11, $12, $01, $9C, $22, $80
+; Picture $59.
 s9175:
         .byte $11, $03, $01, $9E, $22, $04, $01, $C0, $22, $80
+; Picture $5A.
 s917F:
         .byte $11, $12, $02, $C2, $12, $C8, $22, $80
+; Picture $5B.
 s9187:
         .byte $11, $03, $02, $CA, $12, $C6, $22, $04, $02, $C4, $12, $CC, $22, $80
+; Picture $5C.
 s9195:
         .byte $11, $03, $02, $CE, $14, $B0, $24, $04, $01, $B2, $24, $80
+; Picture $5D.
 s91A1:
         .byte $11, $02, $01, $B4, $24, $03, $01, $B6, $24, $04, $01, $B8, $24, $05, $01, $BA
         .byte $24, $80
+; Picture $5E.
 s91B3:
         .byte $11, $03, $04, $75, $00, $7D, $10, $6D, $20, $BC, $30, $04, $04, $77, $00, $7F
         .byte $10, $6F, $20, $BE, $30, $80
+; Picture $5F.
 s91C9:
         .byte $11, $03, $03, $69, $00, $51, $10, $90, $20, $04, $03, $D0, $00, $53, $10, $92
         .byte $20, $80
+; Picture $60.
 s91DB:
         .byte $11, $03, $04, $65, $00, $71, $10, $79, $20, $98, $30, $04, $03, $73, $10, $7B
         .byte $20, $9A, $30, $80
+; Picture $61.
 s91EF:
         .byte $11, $03, $05, $45, $00, $4D, $10, $55, $20, $5D, $30, $94, $48, $04, $05, $47
         .byte $00, $4F, $10, $57, $20, $5F, $30, $96, $48, $80
+; Picture $62.
 s9209:
         .byte $11, $27, $01, $D2, $26, $12, $01, $D4, $26, $15, $01, $D6, $26, $80
+; Picture $63.
 s9217:
         .byte $11, $02, $01, $D8, $26, $03, $01, $DA, $26, $04, $01, $E0, $26, $05, $01, $E2
         .byte $26, $80
+; Picture $64.
 s9229:
         .byte $11, $02, $02, $E4, $16, $E8, $26, $03, $02, $E6, $16, $EA, $26, $04, $02, $EC
         .byte $16, $F0, $26, $05, $02, $EE, $16, $F2, $26, $80
+; Picture $65.
 s9243:
         .byte $11, $00, $02, $9C, $02, $9E, $1A, $01, $01, $C0, $1A, $03, $02, $9C, $62, $9E
         .byte $0A, $04, $02, $C0, $0A, $9C, $22, $06, $01, $9E, $2A, $07, $01, $C0, $2A, $80
+; Picture $66.
 s9263:
         .byte $11, $00, $02, $9E, $12, $9C, $2A, $01, $01, $C0, $12, $02, $01, $9C, $02, $03
         .byte $01, $9E, $1A, $04, $01, $C0, $1A, $05, $01, $9C, $32, $06, $01, $9C, $0A, $80
+; Picture $67.
 s9283:
         .byte $11, $00, $01, $9E, $2A, $01, $01, $C0, $2A, $02, $03, $9C, $62, $9E, $0A, $9C
         .byte $32, $03, $01, $C0, $0A, $04, $01, $9C, $2A, $06, $01, $9C, $22, $80
+; Picture $68.
 s92A1:
         .byte $11, $00, $01, $9C, $2A, $01, $01, $9C, $02, $02, $01, $9E, $22, $03, $02, $9E
         .byte $42, $C0, $22, $04, $02, $C0, $42, $9E, $2A, $05, $01, $C0, $2A, $07, $01, $9C
@@ -1251,122 +1391,123 @@ pose_time:
 
 ; --- $92D0  The lines spoken in the cutscenes.
 line_list:
-        .word t93B2
-        .word t9421
-        .word t94A9
-        .word t9542
-        .word t955C
-        .word t9575
-        .word t95A7
-        .word t95B5
-        .word t95D6
-        .word t9603
-        .word t964C
-        .word t965C
-        .word t96A0
-        .word t96DF
-        .word t9766
-        .word t9815
-        .word t9826
-        .word t9860
-        .word t9923
-        .word t99DF
-        .word t9ABE
-        .word t9B38
-        .word t9BCF
-        .word t9C3D
-        .word t9C61
-        .word t9C73
-        .word t9C89
-        .word t9CDD
-        .word t9CEB
-        .word t9D20
-        .word t9D36
-        .word t9EA2
-        .word t9EA8
-        .word t9EB8
-        .word t9EE9
-        .word t9F29
-        .word t9F49
-        .word t9F77
-        .word t9FB4
-        .word tA0D7
-        .word tA1D4
-        .word tA280
-        .word tA37D
-        .word tA3D2
-        .word tA45F
-        .word tA46E
-        .word tA48D
-        .word tA4DD
-        .word tA4E3
-        .word tA515
-        .word tA51C
-        .word tA531
-        .word tA551
-        .word tA591
-        .word tA5CE
-        .word tA60E
-        .word tA6AF
-        .word tA5B7
-        .word tA6CB
-        .word tA6F5
-        .word tA70F
-        .word tA755
-        .word tA76B
-        .word tA78D
-        .word tA85A
-        .word tA8E2
-        .word tA911
-        .word tA91A
-        .word tA963
-        .word tA9AF
-        .word tA9C2
-        .word tA9EB
-        .word tAA31
-        .word tAAA3
-        .word tAAD1
-        .word tAB18
-        .word tAB2C
-        .word tAB3A
-        .word tAB53
-        .word tAB60
-        .word tAB7B
-        .word tABB3
-        .word tABD0
-        .word tACE3
-        .word tACFB
-        .word tAD07
-        .word tAD12
-        .word tAD2B
-        .word tAD99
-        .word tADE6
-        .word tAE2F
-        .word tAE3D
-        .word tAE86
-        .word tAEA7
-        .word tAEB8
-        .word tAF14
-        .word tAF50
-        .word tAF98
-        .word tAFB8
-        .word tAFD7
-        .word tB0A1
-        .word tB0B5
-        .word tB123
-        .word tB12F
-        .word tB142
-        .word tB15F
-        .word tB176
-        .word tB1BD
-        .word tB1E8
-        .word tB21C
-        .word tB245
-        .word tB25B
-        .word tB2A2
+        .word ask_duel
+        .word found_letter
+        .word dragon_sword
+        .word be_brave
+        .word my_revenge
+        .word being_followed
+        .word whos_there
+        .word just_a_girl
+        .word will_first
+        .word where_am_i
+        .word who_are_you
+        .word ask_favor
+        .word take_statue
+        .word no_time
+        .word bizarre_statue
+        .word who_is_it
+        .word im_ryu
+        .word kens_son
+        .word amazon_ruins
+        .word demon_power
+        .word shinobi_dragon
+        .word demon_lives
+        .word shadow_statue
+        .word bye_friend
+        .word what_the
+        .word after_him
+        .word hurried_back
+        .word dr_smith
+        .word light_taken
+        .word the_light
+        .word each_kept_one
+        .word smith_silence
+        .word come_with_us
+        .word welcome_ryu
+        .word foster_cia
+        .word to_the_point
+        .word why_smith
+        .word didnt_kill
+        .word ancient_temple
+        .word guardia
+        .word held_spirits
+        .word black_moon
+        .word our_agent
+        .word their_hq
+        .word say_no
+        .word you_know_answer
+        .word give_statue
+        .word refuse_statue
+        .word what_saying
+        .word ryu_called
+        .word you_coward
+        .word dont_give
+        .word put_it_down
+        .word this_goodbye
+        .word the_sacrifice
+        .word its_mine
+        .word jaquio_laugh
+        .word nice_day
+        .word i_am_malth
+        .word must_defeat
+        .word better_sword
+        .word know_father
+        .word fight_hayabusa
+        .word killed_father
+        .word show_yourself
+        .word even_father
+        .word malth_what
+        .word turned_devil
+        .word fight_to_death
+        .word wake_father
+        .word only_killing
+        .word my_destiny
+        .word break_control
+        .word thats_it
+        .word are_you_ryu
+        .word hes_awake
+        .word jaquio_name
+        .word both_will_die
+        .word watch_out_line
+        .word ugh_father
+        .word get_them
+        .word your_day
+        .word temple_falls
+        .word father_cry
+        .word father_shout
+        .word ryu_whisper
+        .word sea_swallow
+        .word kill_order
+        .word steal_statues
+        .word foster_plan
+        .word ryu_you
+        .word two_payments
+        .word second_payment
+        .word ryu_wait
+        .word what_payment
+        .word her_name
+        .word sun_rising
+        .word darkness_over
+        .word thank_god
+        .word throw_statues
+        .word whats_that
+        .word lunar_eclipse
+        .word staff_roll
+        .word staff_story
+        .word staff_screen
+        .word staff_image
+        .word staff_art
+        .word staff_program
+        .word staff_assist
+        .word staff_sound
+        .word staff_director
+        .word staff_legal
+        .word staff_thanks
 
 .charmap $27, $25                       ; apostrophe
-t93B2:
+; Who did father fight, and why?
+ask_duel:
         .byte "With whom did father", new_line
         .byte "have a duel and lose?..", new_line
         .byte "For what reason did he", new_line
@@ -1375,7 +1516,8 @@ t93B2:
 
         .byte "Even I don't know for", new_line
         .byte "sure.", line_end
-t9421:
+; The letter father left the day after he disappeared.
+found_letter:
         .byte "The day after he", new_line
         .byte "disappeared, in father's", new_line
         .byte "room I found a letter", new_line
@@ -1385,7 +1527,8 @@ t9421:
         .byte "It said,", new_line
         .byte '"', "Ryu, I am on my way to"
         .byte line_in, "a life or death duel.", line_end
-t94A9:
+; Take the Dragon sword and go see Walter Smith.
+dragon_sword:
         .byte '"', "If it is destiny that I"
         .byte line_in, "not return, you are to", new_line
         .byte "take the Dragon sword", new_line
@@ -1395,43 +1538,54 @@ t94A9:
         .byte '"', "and go to America and"
         .byte line_in, "see the archaeologist,", new_line
         .byte "Walter Smith.", line_end
-t9542:
+; Ryu, be always brave.
+be_brave:
         .byte '"', "Ryu, be always brave...", '"', line_end
-t955C:
+; Ryu swears he will get his revenge.
+my_revenge:
         .byte '"', "I will get my revenge!", '"', line_end
-t9575:
+; Someone is following him.
+being_followed:
         .byte '"', "Who are they..."
         .byte line_in, "They seem to be", new_line
         .byte "following me...", '"', line_end
-t95A7:
+; Who's there?
+whos_there:
         .byte '"', "Who's there?", line_end
-t95B5:
+; Just a girl. Get out of here.
+just_a_girl:
         .byte clear_text
 
         .byte '"', "Just a girl."
         .byte line_in, "Get out of here!", '"', line_end
-t95D6:
+; He will leave, but first.
+will_first:
         .byte '"', "I will, but first...", '"', new_line
         .byte wait_text, wait_text, new_line
         .byte '"', "What the .... ?!", '"', line_end
-t9603:
+; Where am I? The anesthetic is wearing off.
+where_am_i:
         .byte '"', "Ow... ", wait_text, "Where... ", wait_text, new_line
         .byte " Where am I?", '"', new_line
         .byte wait_text, '"', "I see the anesthetic is"
         .byte line_in, "wearing off.", '"', line_end
-t964C:
+; Who are you?
+who_are_you:
         .byte '"', "Who are you?!", '"', line_end
-t965C:
+; She has a favor to ask.
+ask_favor:
         .byte '"', "Shhh. Don't make so"
         .byte line_in, "much noise...", new_line
         .byte "I've got a favor to ask", new_line
         .byte "of you.", '"', line_end
-t96A0:
+; Take this and escape. What is this statue?
+take_statue:
         .byte '"', "Here. Take this and", new_line
         .byte " escape.", '"', new_line
         .byte '"', "What is this ..."
         .byte line_in, "this statue?", '"', line_end
-t96DF:
+; There is no time to explain. Who are you?
+no_time:
         .byte start_picture, $01, '"', "There's no time to", new_line
         .byte " explain. Hurry.", '"', change_picture, $17, new_line
         .byte wait_text, '"', "Hey, wait. Who are you?", wait_text
@@ -1443,7 +1597,8 @@ t96DF:
 
         .byte start_picture, $01, '"', "Someone's coming."
         .byte line_in, "Be careful.", '"', change_picture, $17, line_end
-t9766:
+; What is the statue, and who was that woman? He goes to find Mr. Smith.
+bizarre_statue:
         .byte '"', "What is this bizarre"
         .byte line_in, "statue anyway?", new_line
         .byte "And who was that woman?", '"'
@@ -1457,14 +1612,17 @@ t9766:
         .byte "supposed acquaintance", new_line
         .byte "of my father's, Mr.", new_line
         .byte "Smith.", line_end
-t9815:
+; Who is it?
+who_is_it:
         .byte start_picture, $02, '"', "Who is it?", '"', change_picture, $19, line_end
-t9826:
+; He asks for Walter Smith. The name is Ryu Hayabusa.
+im_ryu:
         .byte '"', "You must be"
         .byte line_in, "Walter Smith.", new_line
         .byte "The name's Ryu,", new_line
         .byte "Ryu Hayabusa.", '"', line_end
-t9860:
+; That sword. He must be Ken Hayabusa's son.
+kens_son:
         .byte start_picture, $02, '"', "Who? That sword,..."
         .byte line_in, change_picture, $19, wait_text, start_picture, $02, "Of course. You must be", new_line
         .byte "Ken Hayabusa's son.", '"', change_picture, $19
@@ -1477,7 +1635,8 @@ t9860:
 
         .byte start_picture, $02, '"', "Last letter?", change_picture, $19, wait_text, start_picture, $02, " I see ..."
         .byte line_in, change_picture, $19, wait_text, start_picture, $02, "So it is already begun.", '"', change_picture, $19, line_end
-t9923:
+; Ken and Walter found a statue and a tablet in Amazon ruins.
+amazon_ruins:
         .byte start_picture, $02, '"', "Ken and I were on an"
         .byte line_in, "expedition to some old", new_line
         .byte "Amazon ruins.", change_picture, $19
@@ -1490,7 +1649,8 @@ t9923:
 
         .byte '"', "Wait a minute. You mean"
         .byte line_in, "to tell that statue ...", '"', line_end
-t99DF:
+; The demon statue can destroy a nation. Shinobi stopped the demon.
+demon_power:
         .byte '"', "Yes, precisely."
         .byte line_in, "I thought it had been", new_line
         .byte "stolen."
@@ -1510,7 +1670,8 @@ t99DF:
         .byte '"', "But then SHINOBI"
         .byte line_in, "appeared to stop the", new_line
         .byte "demon.", line_end
-t9ABE:
+; Shinobi borrowed the dragon's strength and overcame the demon.
+shinobi_dragon:
         .byte '"', "SHINOBI borrowed the"
         .byte line_in, "strength of the dragon", new_line
         .byte clear_text
@@ -1519,7 +1680,8 @@ t9ABE:
         .byte line_in, "the demon's spells and", new_line
         .byte "thus was able to", new_line
         .byte "overcome it.", line_end
-t9B38:
+; The demon was not dead. Its power was sealed in Light and Shadow.
+demon_lives:
         .byte start_picture, $02, '"', "Yet, though it was"
         .byte line_in, "defeated. the demon was", new_line
         .byte "not dead.", change_picture, $19
@@ -1529,7 +1691,8 @@ t9B38:
         .byte line_in, "evil power of the demon", new_line
         .byte "in two statues", new_line
         .byte "of ", '"', "LIGHT", '"', " and ", '"', "SHADOW", '"', ".", change_picture, $19, line_end
-t9BCF:
+; The body was confined in a temple. This is the Shadow statue.
+shadow_statue:
         .byte '"', "...And the body of the"
         .byte line_in, "demon was confined in a", new_line
         .byte "temple."
@@ -1538,28 +1701,36 @@ t9BCF:
         .byte '"', "This one must be the"
         .byte line_in, '"', "SHADOW", '"', " statue.", new_line
         .byte "Therefore,...", '"', line_end
-t9C3D:
+; And now I've got it. Bye, friend.
+bye_friend:
         .byte '"', "And now I've got it."
         .byte line_in, "Bye, friend!", '"', line_end
-t9C61:
+; What the?
+what_the:
         .byte '"', "What the ... ?", '"'
         .byte line_in, line_end
-t9C73:
+; After him, Ryu.
+after_him:
         .byte start_picture, $02, '"', "After him, Ryu!", '"', change_picture, $19, line_end
-t9C89:
+; After getting the statue back, he hurried back.
+hurried_back:
         .byte "After getting back the", new_line
         .byte "demon statue. I felt", new_line
         .byte "a strange premonition", new_line
         .byte "and hurried back.", line_end
-t9CDD:
+; Dr. Smith!
+dr_smith:
         .byte '"', "Dr. Smith!!", '"', line_end
-t9CEB:
+; The Light demon statue was taken.
+light_taken:
         .byte '"', "Ryu...", wait_text, " the ", '"', "LIGHT", '"'
         .byte line_in, "demon statue ...", wait_text, new_line
         .byte "was taken...", '"', line_end
-t9D20:
+; The Light statue?
+the_light:
         .byte '"', "The ", '"', "LIGHT", '"', " statue?", '"', line_end
-t9D36:
+; Father and Walter each kept one statue, so the two would never become one.
+each_kept_one:
         .byte '"', "Yes,", wait_text, " your father and I"
         .byte line_in, "...", wait_text, " we each kept one of", new_line
         .byte "the statues...", wait_text, " just in", new_line
@@ -1586,29 +1757,37 @@ t9D36:
         .byte clear_text
 
         .byte '"', "Dr. Smith!", wait_text, " Dr. Smith!", '"', line_end
-t9EA2:
+; Walter falls silent.
+smith_silence:
         .byte '"', "...", '"', line_end
-t9EA8:
+; Come with us.
+come_with_us:
         .byte '"', "Come with us.", '"', line_end
-t9EB8:
+; Welcome, Ryu Hayabusa.
+welcome_ryu:
         .byte '"', "Welcome, Ryu Hayabusa."
         .byte line_in, "Sorry if I startled", new_line
         .byte "you.", line_end
-t9EE9:
+; They are from the CIA. His name is Foster.
+foster_cia:
         .byte '"', "We are from the CIA"
         .byte line_in, "Special Auxiliary unit.", new_line
         .byte "My name's Foster.", '"', line_end
-t9F29:
+; Getting right to the point.
+to_the_point:
         .byte '"', "Getting right to the"
         .byte line_in, "point...", '"', line_end
-t9F49:
+; Why did you kill Smith?
+why_smith:
         .byte '"', "Wait.", wait_text, " I want to know"
         .byte line_in, "why you killed Smith?", '"', line_end
-t9F77:
+; They did not kill him.
+didnt_kill:
         .byte '"', "We didn't kill him."
         .byte line_in, "But we'll fill you in", new_line
         .byte "on what we know.", '"', line_end
-t9FB4:
+; Ancient ruins in the Amazon. Dr. Smith studied them.
+ancient_temple:
         .byte '"', "In the upper reaches of"
         .byte line_in, "the Amazon, some", new_line
         .byte "ancient ruins were", new_line
@@ -1635,7 +1814,8 @@ t9FB4:
         .byte clear_text
 
         .byte line_end
-tA0D7:
+; A man named Guardia de Mieux took the ruins. He calls himself the Jaquio.
+guardia:
         .byte '"', "Later, however, a man"
         .byte line_in, "moved in and took over", new_line
         .byte "the ruins. His name is", new_line
@@ -1657,7 +1837,8 @@ tA0D7:
         .byte clear_text
 
         .byte line_end
-tA1D4:
+; Evil spirits are held in the statue. Smith was killed for it.
+held_spirits:
         .byte '"', "Therefore, evil spirits"
         .byte line_in, "are supposed to be held", new_line
         .byte "in the statue you have."
@@ -1670,7 +1851,8 @@ tA1D4:
         .byte '"', "He was probably killed"
         .byte line_in, "by someone working for", new_line
         .byte "the Jaquio.", '"', line_end
-tA280:
+; When a black moon shines, Light and Dark break apart.
+black_moon:
         .byte '"', "When a black moon"
         .byte line_in, "shines, Light and Dark", new_line
         .byte "break apart, the King", new_line
@@ -1690,14 +1872,16 @@ tA280:
 
         .byte '"', "enough to control the"
         .byte line_in, "entire world.", '"', line_end
-tA37D:
+; The woman who shot him in the bar was one of their agents.
+our_agent:
         .byte '"', "So you know about that?", '"'
         .byte clear_text
 
         .byte '"', "The woman who shot you"
         .byte line_in, "in the bar was one of", new_line
         .byte "our agents.", '"', line_end
-tA3D2:
+; Go to their headquarters and get the demon statue back.
+their_hq:
         .byte '"', "They are after you."
         .byte clear_text
 
@@ -1709,45 +1893,58 @@ tA3D2:
 
         .byte '"', "Of course, you will be"
         .byte line_in, "paid for the work.", '"', line_end
-tA45F:
+; If I say no?
+say_no:
         .byte '"', "If I say no?", '"', line_end
-tA46E:
+; You know the answer to that.
+you_know_answer:
         .byte '"', "You know the answer to"
         .byte line_in, "that.", '"', line_end
-tA48D:
+; Give me the demon statue.
+give_statue:
         .byte start_picture, $06, '"', "You have come a long"
         .byte line_in, "way to bring me the", new_line
         .byte "demon statue.", new_line
         .byte "Now give it to me.", '"', change_picture, $1F, line_end
-tA4DD:
+; No.
+refuse_statue:
         .byte '"', "No!", '"', line_end
-tA4E3:
+; Do you know what you're saying?
+what_saying:
         .byte start_picture, $06, '"', "Do you know what you're", new_line
         .byte " saying.", '"', new_line
         .byte change_picture, $1F, new_line
         .byte wait_text, '"', "What?!", '"', line_end
-tA515:
+; Ryu!
+ryu_called:
         .byte '"', "Ryu!", '"', line_end
-tA51C:
+; You coward.
+you_coward:
         .byte '"', "You... you coward.", '"', line_end
-tA531:
+; Don't give it to him.
+dont_give:
         .byte start_picture, $05, '"', "No, don't give it to"
         .byte line_in, "him.", '"', change_picture, $39, line_end
-tA551:
+; Put the demon statue on the floor, and back up.
+put_it_down:
         .byte start_picture, $06, '"', "Now, put down the demon"
         .byte line_in, "statue on the floor,", new_line
         .byte "and back up.", '"', change_picture, $1F, line_end
-tA591:
+; Nice work. This is goodbye.
+this_goodbye:
         .byte '"', "Nice work. I guess"
         .byte line_in, "this is goodbye.", '"', line_end
-tA5B7:
+; Have a nice day.
+nice_day:
         .byte start_picture, $06, '"', "Have a nice day.", '"', change_picture, $1F, line_end
-tA5CE:
+; Take the girl away. She is going to be a sacrifice.
+the_sacrifice:
         .byte '"', "Ah... ", '"', new_line
         .byte wait_text, '"', "Take the girl away."
         .byte line_in, "She is going to be a", new_line
         .byte "sacrifice.", '"', line_end
-tA60E:
+; The statue is his. Tonight is the night of rebirth.
+its_mine:
         .byte change_picture, $21, '"', "Ha, ha, ha..."
         .byte line_in, wait_text, start_picture, $06, "it's mine.", change_picture, $1F
         .byte clear_text
@@ -1761,24 +1958,31 @@ tA60E:
         .byte start_picture, $06, '"', "This world will"
         .byte line_in, "soon be mine.", new_line
         .byte start_picture, $07, "Ha, ha, ha...", wait_text, change_picture, $21, line_end
-tA6AF:
+; The Jaquio laughs.
+jaquio_laugh:
         .byte change_picture, $27, '"', "Ha, ha, ha, ha, ha....", '"', wait_text, line_end
-tA6CB:
+; I am Malth. You will never get past me.
+i_am_malth:
         .byte '"', "I am Malth."
         .byte line_in, "You will never get past", new_line
         .byte "me.", '"', line_end
-tA6F5:
+; Then I must defeat you.
+must_defeat:
         .byte '"', "Then I must defeat you!", '"', line_end
-tA70F:
+; As bold as his father, but his father is the better swordsman.
+better_sword:
         .byte '"', "You are as bold as your"
         .byte line_in, "father.", wait_text, " But he is a", new_line
         .byte "much better swordsman.", '"', line_end
-tA755:
+; You know my father?
+know_father:
         .byte '"', "You know my father?", '"', line_end
-tA76B:
+; Come and fight, young Hayabusa.
+fight_hayabusa:
         .byte '"', "Come and fight, young"
         .byte line_in, "Hayabusa!", '"', line_end
-tA78D:
+; You killed my father. Malth says he is alive.
+killed_father:
         .byte '"', "You killed my father.", '"'
         .byte clear_text
 
@@ -1798,7 +2002,8 @@ tA78D:
 
         .byte '"', "But it will be the last"
         .byte line_in, "thing you see.", '"', line_end
-tA85A:
+; Praise for making it this far. Where are you? Show yourself.
+show_yourself:
         .byte '"', "Ryu, you deserve praise", new_line
         .byte " for making it this far..", '"', new_line
         .byte wait_text, wait_text, '"', "Where are you,"
@@ -1808,18 +2013,22 @@ tA85A:
         .byte '"', "...but even you cannot"
         .byte line_in, "defeat ", '"', "the masked", new_line
         .byte "devil", '"', line_end
-tA8E2:
+; No one can beat him. Even his father?
+even_father:
         .byte '"', "No one can beat me.", '"', new_line
         .byte wait_text, new_line
         .byte '"', "Even... your father?", '"', line_end
-tA911:
+; What?
+malth_what:
         .byte '"', "What?!", '"', line_end
-tA91A:
+; Father was not killed. He was turned into the masked devil.
+turned_devil:
         .byte '"', "Your father was not"
         .byte line_in, "killed. he has been", new_line
         .byte "turned into ", '"', "the masked", new_line
         .byte "devil.", '"', line_end
-tA963:
+; Father and son will fight to the death.
+fight_to_death:
         .byte '"', "No!", '"'
         .byte clear_text
 
@@ -1827,17 +2036,21 @@ tA963:
         .byte line_in, "entertaining to watch", new_line
         .byte "father and son fight to", new_line
         .byte "the death.", '"', line_end
-tA9AF:
+; Wake up, Father.
+wake_father:
         .byte '"', "Wake up, Father!", '"', line_end
-tA9C2:
+; No use. He thinks only of killing you.
+only_killing:
         .byte '"', "No use.", wait_text, " He thinks only"
         .byte line_in, "of killing you.", line_end
-tA9EB:
+; Malth was telling the truth. What shall I do?
+my_destiny:
         .byte '"', "So this is my destiny"
         .byte line_in, "Malth was telling the", new_line
         .byte "truth.", new_line
         .byte wait_text, "What shall I do?", line_end
-tAA31:
+; Father's eyes show he is controlled. Break the control.
+break_control:
         .byte '"', "I've got to think"
         .byte line_in, "clearly."
         .byte clear_text
@@ -1846,11 +2059,13 @@ tAA31:
         .byte line_in, "show he is controlled", new_line
         .byte "like a puppet.", new_line
         .byte "If I break the control...", line_end
-tAAA3:
+; What is controlling him? That's it.
+thats_it:
         .byte '"', "But What is"
         .byte line_in, "controlling him?", new_line
         .byte wait_text, wait_text, wait_text, wait_text, "That's it!", '"', line_end
-tAAD1:
+; Where am I? Ryu, are you Ryu?
+are_you_ryu:
         .byte '"', "Father!", '"'
         .byte clear_text
 
@@ -1858,27 +2073,35 @@ tAAD1:
         .byte wait_text, " Ryu... Are you Ryu?", '"', new_line
         .byte wait_text, new_line
         .byte '"', "Yes, Father.", '"', line_end
-tAB18:
+; He's awake.
+hes_awake:
         .byte '"', "Argh! He's awake.", '"', line_end
-tAB2C:
+; The Jaquio!
+jaquio_name:
         .byte '"', "The Jaquio!", '"', line_end
-tAB3A:
+; You both will die.
+both_will_die:
         .byte start_picture, $08, '"', "You both will die!", '"', change_picture, $27, line_end
-tAB53:
+; Watch out!
+watch_out_line:
         .byte '"', "Watch out!", '"', line_end
-tAB60:
+; Father falls.
+ugh_father:
         .byte '"', "Ugh...!!!!", '"', new_line
         .byte wait_text, new_line
         .byte '"', "Father...", '"', line_end
-tAB7B:
+; You've got to get them for me.
+get_them:
         .byte '"', "Ryu...", wait_text, "you've got to", new_line
         .byte " ...get them for me.", '"', new_line
         .byte wait_text, new_line
         .byte '"', "Father!", '"', line_end
-tABB3:
+; Your day has come, Jaquio.
+your_day:
         .byte '"', "Your day has come,"
         .byte line_in, "Jaquio!", '"', line_end
-tABD0:
+; The temple is breaking apart. Take that woman and escape.
+temple_falls:
         .byte '"', "Wake up father, wake up.", '"'
         .byte clear_text
 
@@ -1903,15 +2126,20 @@ tABD0:
         .byte clear_text
 
         .byte '"', "Ryu,", wait_text, " good luck...", '"', line_end
-tACE3:
+; Father, father.
+father_cry:
         .byte '"', "Father,", wait_text, " father...!!!", '"', line_end
-tACFB:
+; Father!
+father_shout:
         .byte '"', "Father!!!", '"', line_end
-tAD07:
+; Ryu.
+ryu_whisper:
         .byte wait_text, wait_text, '"', "Ryu...", '"', line_end
-tAD12:
+; This is Sea Swallow.
+sea_swallow:
         .byte '"', "This is Sea Swallow...", '"', line_end
-tAD2B:
+; Foster orders Sea Swallow to kill Ryu Hayabusa.
+kill_order:
         .byte '"', "This is Foster."
         .byte line_in, "We detected the", new_line
         .byte "explosion from the", new_line
@@ -1920,29 +2148,36 @@ tAD2B:
 
         .byte '"', "Job well done. You are"
         .byte line_in, "to kill Ryu Hayabusa.", '"', line_end
-tAD99:
+; Kill Ryu, then steal the demon statues.
+steal_statues:
         .byte '"', "What?", wait_text, " Kill Ryu?", '"', new_line
         .byte wait_text, '"', "That's right."
         .byte line_in, "Then you are to steal", new_line
         .byte "the demon statues.", '"', line_end
-tADE6:
+; This was your plan all along. I'll get you for this, Foster.
+foster_plan:
         .byte start_picture, $0B, '"', "So this was your plan"
         .byte line_in, "all along ...", new_line
         .byte "I'll get you for this,", new_line
         .byte "Foster!", '"', change_picture, $29, line_end
-tAE2F:
+; Ryu, you.
+ryu_you:
         .byte '"', "Ryu, you...", '"', line_end
-tAE3D:
+; She gets two kinds of payment. The first she has already received.
+two_payments:
         .byte start_picture, $0B, '"', "I get two kinds of"
         .byte line_in, "payment.", new_line
         .byte change_picture, $29, wait_text, start_picture, $0B, "The first I have", new_line
         .byte "already received.", change_picture, $29, line_end
-tAE86:
+; The second is you, Foster.
+second_payment:
         .byte '"', "The second...", wait_text, " is you,"
         .byte line_in, "Foster!", '"', line_end
-tAEA7:
+; Ryu, wait.
+ryu_wait:
         .byte '"', "Ryu... wait...", '"', line_end
-tAEB8:
+; What payment have you already received? She is right in front of him.
+what_payment:
         .byte start_picture, $0A, '"', "Ryu,", change_picture, $23, wait_text, start_picture, $0A, " what is the"
         .byte line_in, "payment you have", new_line
         .byte "already recieved?", change_picture, $23
@@ -1950,24 +2185,29 @@ tAEB8:
 
         .byte '"', "She's right in front"
         .byte line_in, "of me.", '"', line_end
-tAF14:
+; He does not know her name. Irene Lew.
+her_name:
         .byte '"', "I don't even know your"
         .byte line_in, "name.", '"'
         .byte clear_text
 
         .byte start_picture, $0A, '"', "Irene,", change_picture, $23, wait_text, start_picture, $0A, " Irene Lew.", '"', change_picture, $23, line_end
-tAF50:
+; The sun is rising. Everything is so bright now.
+sun_rising:
         .byte start_picture, $0B, '"', "Well, Irene."
         .byte line_in, "Look, the sun is rising.", new_line
         .byte "Everything is so bright", new_line
         .byte "now.", change_picture, $29, line_end
-tAF98:
+; The darkness is finally over.
+darkness_over:
         .byte '"', "the darkness is"
         .byte line_in, "finally over.", '"', line_end
-tAFB8:
+; Ryu! Thank God you're safe.
+thank_god:
         .byte '"', "Ryu!", '"', new_line
         .byte wait_text, '"', "Thank God your safe!", '"', line_end
-tAFD7:
+; Get out of the temple and throw the demon statues, before the black moon shines.
+throw_statues:
         .byte '"', "Let's go, father."
         .byte line_in, wait_text, "Let's get out of this", new_line
         .byte "temple.", '"'
@@ -1982,9 +2222,11 @@ tAFD7:
         .byte '"', "while we've still got"
         .byte line_in, "time. Before the ", '"', "black", new_line
         .byte "moon", '"', " shines.", '"', line_end
-tB0A1:
+; Ryu, what's that?
+whats_that:
         .byte '"', "Ryu, what's that?", '"', line_end
-tB0B5:
+; A lunar eclipse. The black moon. The demon statue.
+lunar_eclipse:
         .byte '"', "Is it a lunar eclipse?!"
         .byte line_in, wait_text, "That must be it.", new_line
         .byte "That's what the ", '"', "black", new_line
@@ -1993,19 +2235,24 @@ tB0B5:
 
         .byte '"', "Oh, no!"
         .byte line_in, "The demon statue!", '"', line_end
-tB123:
+; The staff roll.
+staff_roll:
         .byte skip_ahead, $08, "S T A F F", line_end
-tB12F:
+; Story.
+staff_story:
         .byte "STORY"
         .byte line_in, "  SAKURAZAKI", line_end
-tB142:
+; Screenplay.
+staff_screen:
         .byte "SCREENPLAY"
         .byte line_in, "  SAKURAZAKI"
         .byte line_in, " FAW", line_end
-tB15F:
+; Image illustration.
+staff_image:
         .byte "IMAGE ILLUST"
         .byte line_in, "  RUNMARU", line_end
-tB176:
+; Art.
+staff_art:
         .byte "ART WORKS"
         .byte line_in, "  RUNMARU"
         .byte line_in, " PARCO"
@@ -2016,30 +2263,36 @@ tB176:
         .byte line_in, "  NAGA"
         .byte line_in, " WILD TAGOU"
         .byte line_in, "NIWAKAMARU", line_end
-tB1BD:
+; Program.
+staff_program:
         .byte "PROGRAM WORKS"
         .byte line_in, "  MADOKA SOUTHERNAMI"
         .byte line_in, " MASITA", line_end
-tB1E8:
+; Assistant, and the NES translation.
+staff_assist:
         .byte "ASSISTANT", new_line
         .byte "   NOSUKE", new_line
         .byte "NES TRANSLATOR"
         .byte line_in, "  KEVIN & DANIEL", line_end
-tB21C:
+; Sound.
+staff_sound:
         .byte "SOUND DESIGN"
         .byte line_in, "  MORE YAMASAN"
         .byte line_in, " B.B"
         .byte line_in, "HAKASE"
         .byte line_in, line_end
-tB245:
+; Director.
+staff_director:
         .byte "DIRECTOR"
         .byte line_in, "  SAKURAZAKI", line_end
-tB25B:
+; Tecmo, 1989. All rights reserved.
+staff_legal:
         .byte skip_ahead, $07, "AUDIO VISUAL"
         .byte line_in, "  COPYRIGHT MCMLXXXIX"
         .byte line_in, skip_ahead, $06, "TECMO LTD."
         .byte line_in, "ALL RIGHTS RESERVED.", line_end
-tB2A2:
+; Thank you for playing.
+staff_thanks:
         .byte "  THANK YOU FOR PLAYING."
         .byte line_in, "   AND SEE YOU NEXT.", line_end
 

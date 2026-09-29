@@ -88,8 +88,45 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   the colors. `start_gray` (`$86C1`) and `gray_flash` (`$880F`) flash the
   picture gray. `queue_tiles` (`$8836`) copies tiles into the list the
   screen draws. `fill_backdrop` (`$8398`) paints the background color.
-  `hide_pictures` (`$85EB`) hides the moving pictures. `call_bank`
-  (`$BF98`) calls a routine in another bank and switches this one back.
+  `hide_pictures` (`$85EB`) hides the moving pictures. `say_line`
+  (`$85DD`) starts a line. The low six bits are how long each letter
+  waits.
+  `scene` (`$0300`) is which cutscene is playing. `wait_lo` (`$0301`)
+  and `wait_hi` (`$0302`) are the frames left in this step. `script_done`
+  (`$0303`) means the script has finished. `script_at` (`$0304`) is
+  which byte, and `script_ptr` (`$0A`) points at the script.
+  `shade_left` (`$0305`) is the shades left in a fade. `shade_wait`
+  (`$0306`) is the frames until the next shade, and `shade_load`
+  (`$0309`) is that wait used again. `fade_mode` (`$0307`) bit 7 jumps
+  several shades and starts from black. `fade_which` (`$0308`) chooses
+  which colors. `flash_left` (`$030A`) is the gray flashes left.
+  `flash_time` (`$030B`) is the frames until the next flip.
+  `shot_on` (`$030C`) means the picture is moving through a shot.
+  `shot_i` (`$030D`) is which shot, `shot_delay` (`$030E`) the wait,
+  `shot_left` (`$030F`) the frames left, and `shot_at` (`$0310`) where
+  it is in the list. `band_count` (`$031D`) is how many bands the
+  picture is split into. `band_lo` (`$031E`) is how far a band is
+  scrolled, `band_hold` (`$0326`) how long until the next band, and
+  `band_speed` (`$032E`) how fast it scrolls. `scroll_x` (`$A1`) and
+  `scroll_y` (`$A7`) are the whole picture. `scroll_dx` (`$E1`) and
+  `scroll_dy` (`$E3`) are how fast it moves. `camera_flags` (`$0384`)
+  bit 7 switches the pictures at the split. `split_chr` (`$038A`) is
+  those pictures. `which_screen` (`$0385`) is the second screen.
+  `split_on` (`$0386`) means the split sprite is in use. `backdrop`
+  (`$038B`) is the background color. `palette_set` (`$038C`) is which
+  colors, four for the background and four for the sprites.
+  `colors_due` (`$0388`) loads them when the step ends. `colors`
+  (`$03A3`) are the 32 colors waiting to be sent. `tile_ptr` (`$E8`)
+  is the tiles being copied, and `tile_base` (`$0311`) is where they
+  go. `pad_last` (`$EA`) is the buttons held on the previous frame.
+  `pose_wait` (`$88CF`) is how long the first pose stays.
+  `path_wait` (`$88E3`) is how long a picture waits on the first place
+  of its path. `slide_speed` (`$8B04`) is how fast a picture slides.
+  `speed_change` (`$8B6C`) is a slide whose speed changes.
+  Script `$0D` plays when Start skips the opening. If it finishes, the
+  opening plays again. If Start skips it, script `$0C` plays and the
+  game starts. `call_bank` (`$BF98`) calls a routine in another bank
+  and switches this one back.
 - PRG bank 01 (`prg/bank01.asm`) is the stage pictures and a few whole
   screens, switched in at `$8000`. `area_gfx` picks the set. `block_tiles`
   (`$8000`) is the four tiles in one block. `which_blocks` (`$A000`) says
@@ -104,6 +141,59 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   that are spoken, switched in at `$8000`. `draw_picture` (`$8000`) draws
   picture A on the background. `picture_list` (`$82D4`) is which picture.
   `picture_parts` (`$8B71`) is where that picture's tiles and colors are.
+  Three sets: `tiles_1` (`$8B7D`), `tiles_2` (`$937D`), `tiles_3` (`$9B7D`),
+  then `colors_1` (`$A145`), `colors_2` (`$A1C5`), `colors_3` (`$A245`).
+  A picture's first byte picks the background tiles and which set. The
+  next byte is how many across and how many down. Each block is a
+  4-by-2 tile patch. `moon_field` (`$8356`) is the moon over the field.
+  `streaks` (`$83B8`) is white streaks. `moon_grass` (`$83DA`) is the
+  edge of the moon and the grass. `ryu_bust` (`$83FC`) is Ryu from the
+  chest up. `the_sword` (`$8406`) is the Dragon Sword. `eyes_open`
+  (`$8418`), `eyes_hard` (`$843A`), `eyes_closing` (`$845C`), and
+  `eyes_shut` (`$847E`) are Ryu's eyes. `irene_gun` (`$84A0`) is Irene
+  Lew holding a gun. `demon_statue` (`$84D2`) is a demon statue.
+  `irene_profile` (`$84DC`) is Irene in profile. `walter` (`$84EA`) is
+  Walter Smith. `smith_back` (`$850C`) is Walter from behind.
+  `temple_moon` (`$852E`) is the temple under the moon. `field_trees`
+  (`$8588`) is the field and the trees. `temple_field` (`$85E2`) is the
+  temple over the field. `jaquio_face` (`$863C`) is the Jaquio.
+  `broken_wall` (`$8656`) is the wall broken open. `malth` (`$8678`) is
+  Malth. `fathers_fight` (`$868A`) is a scarred face and a man under the
+  moon. `devil_mask` (`$86A4`) is the masked devil. `father` (`$86B6`)
+  is Ryu's father. `three_faces` (`$86C8`) is three screaming faces.
+  `demon_claw` (`$86E2`) is a claw. `grass` (`$86F4`) is the grass.
+  `ryu_runs` (`$8716`) is Ryu running. `bloody_hall` (`$8727`) is blood
+  on the walls and a horned shadow; no script draws it. `title_ninja`
+  (`$8741`) is the word NINJA. `title_logo` (`$8763`) is the Ninja
+  Gaiden logo. `forest_top` (`$876F`) is the top of the forest.
+  `great_moon` (`$8789`) is the moon. `gold_armor` (`$87FB`) is a man
+  in gold armor and a purple cape. `blank_strip` (`$881D`) is a blank
+  strip. `cell_door` (`$883F`) is the cell door, and `cell_open`
+  (`$8859`) is that door open. `stone_wall` (`$8873`) is the stone
+  wall. `roof_hole` (`$888D`) is a hole in the roof. `cia_agents`
+  (`$88A7`) is three men from the CIA. `looking_down` (`$88C1`) is a
+  face looking down. `foster_office` (`$88D3`) is Foster's office.
+  `red_close` (`$88F5`) is a close-up in red. `jungle` (`$891F`) is
+  the jungle. `irene_held` (`$8979`) is Irene and a masked man, and
+  `irene_held_close` (`$8A9C`) is that picture closer. `ryu_profile`
+  (`$898B`) is Ryu in profile. `ryu_face` (`$89AD`) is Ryu's face.
+  `ryu_back` (`$89CF`) is the back of his head. `father_wakes`
+  (`$89F1`) is Ryu's father, close up. `a_hand` (`$8A0B`) is a hand.
+  `leaves` (`$8A1D`) is the leaves. `blank_purple` (`$8A3F`) is a blank
+  purple strip. `night_sky` (`$8A4D`) is the night sky. `gold_statue`
+  (`$8A5F`) is a demon statue in gold. `small_statue` (`$8A69`) is a
+  small statue. `presents` (`$8A6C`) is PRESENTS 1989. `blank_gray`
+  (`$8A72`) is a blank gray strip. `ryu_edge` (`$8AAA`) is the edge of
+  Ryu's hair. `office_wall` (`$8AAD`) is the office wall.
+  `office_stripes` (`$8B0B`) is that wall and the curtains.
+  `temple_hall` (`$8AC7`) is the temple hall. `temple_demon` (`$8AE9`)
+  is that hall and a demon. `push_start` (`$8B2D`) is PUSH START and
+  the Tecmo license. `push_start_spare` (`$8B53`) is the same picture;
+  no script draws it. `the_end` (`$8B6D`) is THE END. From `$A2A2`
+  through `$A7D8` the bytes match the end of bank 04's scripts; bank
+  04 is the copy that runs. `song_copy` (`$B2BE`) is the same songs as
+  bank 03; this bank never plays them. `$BE78` is empty. `$BEDD` is
+  more of those songs, and this bank never plays them.
   `run_sound_test` (`$8222`) shows a number and plays it as a sound. Down
   lowers the number, Up raises it, Start resets the game, B plays a
   sound, and A plays the number. `button_edge` (`$82BE`) is which buttons
@@ -141,18 +231,22 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   (`$0343`). `actor_flags` (`$0345`) bit 6 faces left. `actor_time`
   (`$0346`) is the frames left on this pose, `actor_pose` (`$0347`)
   which pose, and `actor_pic` (`$0348`) which picture. Bit 7 of that
-  picks the pose from `pose_list` (`$8408`). Irene Lew is list 1 and
-  list `$0A`. Walter Smith is list 2. The Jaquio is list `$08`.
+  picks the pose from `pose_list` (`$8408`). `irene_poses` is list 1,
+  pictures `$17` and `$18`. `irene_later` is list `$0A`, pictures `$23`
+  and `$24`. `walter_poses` is list 2, pictures `$19` and `$1A`.
+  `jaquio_poses` is list `$08`, pictures `$26` and `$27`.
   `pixel_shift` (`$83DF`) is how many pixels to shift a sprite.
-  `picture_path` (`$84AB`) is where a picture walks. `actor_pics`
+  `picture_path` (`$84AB`) is where a picture walks. `walk_right` steps
+  to the right. `walk_left` steps to the left. `actor_pics`
   (`$84B9`) is the pictures. The first byte is the sprite tiles, stored
   in `chr_bank0` (`$56`). `pose_time` (`$92C3`) is how long each pose
   stays. `sprite_i` (`$033F`) is the next sprite. `draw_x` (`$0381`),
   `draw_x_hi` (`$0382`), and `draw_y` (`$0383`) are where it is drawn.
   `draw_flags` (`$0380`) is the facing for that draw.
   `open_line` (`$83B4`) points `line_ptr` (`$E6`) at the line from
-  `line_list` (`$92D0`). The lines run from `$93B2` through the staff
-  roll. `read_char` (`$8210`) takes the next letter or command.
+  `line_list` (`$92D0`). Each line is named from what is said, from
+  `ask_duel` through the staff roll (`staff_thanks`). `read_char`
+  (`$8210`) takes the next letter or command.
   `write_char` (`$8231`) puts the letter on screen with a blank above
   it. That blank is `blank_tile` (`$FA`). The box starts at `box_top`
   (`$22`), `box_left` (`$83`). `row_down` (`$40`) steps down one line.

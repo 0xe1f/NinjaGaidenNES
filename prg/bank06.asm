@@ -665,8 +665,8 @@ ryu_runs:
         .byte $11, $35, $60, $64, $06, $61, $65, $06, $62, $66, $06, $63, $67, $68, $06, $06
         .byte $69
 
-; --- $8727  The Jaquio, and blood on the walls. No script draws this.
-; The scene with Foster draws a close-up of him.
+; --- $8727  The Jaquio, and blood on the walls. No script draws this picture.
+; While Foster says a man took the ruins, the scene stamps this same figure.
 bloody_hall:
         .byte $3F, $64, $7E, $7F, $83, $86, $8A, $7E, $7E, $80, $84, $87, $8B, $7E, $7E, $81
         .byte $10, $88, $8C, $7E, $7E, $82, $10, $89, $8D, $7E
@@ -745,7 +745,7 @@ foster_office:
         .byte $E4, $E7, $DE, $DD, $DD, $DD, $DD, $DD, $E5, $E8, $DE, $DF, $E0, $E1, $E2, $E3
         .byte $E6, $E9
 
-; --- $88F5  The Jaquio, close up. The scene with Foster draws this.
+; --- $88F5  A close-up, in red.
 red_close:
         .byte $1F, $85, $DE, $E2, $06, $06, $06, $06, $06, $06, $DF, $E3, $06, $06, $06, $06
         .byte $06, $06, $E0, $E4, $06, $06, $06, $06, $06, $06, $E1, $E5, $06, $06, $06, $06

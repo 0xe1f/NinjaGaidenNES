@@ -162,8 +162,9 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   moon. `devil_mask` (`$86A4`) is the masked devil. `father` (`$86B6`)
   is Ryu's father. `three_faces` (`$86C8`) is three screaming faces.
   `demon_claw` (`$86E2`) is a claw. `grass` (`$86F4`) is the grass.
-  `ryu_runs` (`$8716`) is Ryu running. `bloody_hall` (`$8727`) is blood
-  on the walls and a horned shadow; no script draws it. `title_ninja`
+  `ryu_runs` (`$8716`) is Ryu running. `bloody_hall` (`$8727`) is the
+  Jaquio and blood on the walls; no script draws it. The scene with
+  Foster draws a close-up of him. `title_ninja`
   (`$8741`) is the word NINJA. `title_logo` (`$8763`) is the Ninja
   Gaiden logo. `forest_top` (`$876F`) is the top of the forest.
   `great_moon` (`$8789`) is the moon. `gold_armor` (`$87FB`) is a man
@@ -173,7 +174,8 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   wall. `roof_hole` (`$888D`) is a hole in the roof. `cia_agents`
   (`$88A7`) is three men from the CIA. `looking_down` (`$88C1`) is a
   face looking down. `foster_office` (`$88D3`) is Foster's office.
-  `red_close` (`$88F5`) is a close-up in red. `jungle` (`$891F`) is
+  `red_close` (`$88F5`) is the Jaquio, close up. The scene with Foster
+  draws this. `jungle` (`$891F`) is
   the jungle. `irene_held` (`$8979`) is Irene and a masked man, and
   `irene_held_close` (`$8A9C`) is that picture closer. `ryu_profile`
   (`$898B`) is Ryu in profile. `ryu_face` (`$89AD`) is Ryu's face.

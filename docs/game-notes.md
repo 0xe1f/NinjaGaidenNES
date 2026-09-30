@@ -123,7 +123,8 @@ patch of 4 by 2 tiles. The title is `title_ninja`, `presents`, and
 and `moon_grass`, then `ryu_bust` and `the_sword`. Ryu's eyes are
 `eyes_open`, `eyes_hard`, `eyes_closing`, and `eyes_shut`. Irene Lew
 is `irene_gun` and `irene_profile`, and later `irene_held`. Walter
-Smith is `walter` and `smith_back`. The Jaquio is `jaquio_face`. Malth
+Smith is `walter` and `smith_back`. The Jaquio is `jaquio_face`.
+A close-up of him, `red_close`, is in the scene with Foster. Malth
 is `malth`, with `night_sky`. The masked devil is `devil_mask`. Ryu's
 father is `father` and `father_wakes`. The cell is `cell_door` and
 `cell_open`. The landscapes are `field_trees`, `temple_field`,
@@ -133,13 +134,14 @@ and `temple_demon` are the rooms. `blank_strip`, `blank_purple`, and
 `blank_gray` cover a portrait. Also in the list: `ryu_runs` and
 `title_logo` in the corner, `demon_statue`, `gold_statue`, and
 `small_statue`, `demon_claw`, `three_faces`, `fathers_fight`,
-`gold_armor`, `looking_down`, `red_close`, `office_wall`,
+`gold_armor`, `looking_down`, `office_wall`,
 `office_stripes`, `irene_held_close`, `ryu_profile`, `ryu_face`,
 `ryu_back`, `ryu_edge`, `a_hand`, and `leaves`. `the_end` closes the
-last scene. `bloody_hall` and `push_start_spare` are pictures no
-script draws. From `$A2A2` through
-`$A7D8` the bytes match the end of bank 04's scripts, and bank 04 is
-the copy that runs. `song_copy` (`$B2BE`) is the same songs as bank
+last scene. `bloody_hall` is the Jaquio between blood-stained
+walls. No script draws it. The scene with Foster draws the close-up,
+`red_close`. `push_start_spare` is a picture no script draws. From
+`$A2A2` through `$A7D8` the bytes match the end of bank 04's scripts,
+and bank 04 is the copy that runs. `song_copy` (`$B2BE`) is the same songs as bank
 03. This bank never plays them. `$BE78` is empty, and `$BEDD` is more
 of those songs. The lines in this bank, through the staff roll, are a
 copy. The copy a cutscene reads, and the reader, are in bank 05.

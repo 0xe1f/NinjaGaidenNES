@@ -665,8 +665,13 @@ ryu_runs:
         .byte $11, $35, $60, $64, $06, $61, $65, $06, $62, $66, $06, $63, $67, $68, $06, $06
         .byte $69
 
-; --- $8727  The Jaquio, and blood on the walls. No script draws this picture.
-; While Foster says a man took the ruins, the scene stamps this same figure.
+; --- $8727  The Jaquio between blood-stained walls, with striped borders.
+; Picture $1B. No script draws this picture. While Foster says a man
+; took the ruins, the scene stamps the same tiles: the Jaquio and the
+; wall beside him. The left wall and the borders never appear. Each
+; block names a color slot and stores no color of its own. The figure
+; and the walls name the same slots as that stamp. The borders name
+; the slot used for the red edge of the window.
 bloody_hall:
         .byte $3F, $64, $7E, $7F, $83, $86, $8A, $7E, $7E, $80, $84, $87, $8B, $7E, $7E, $81
         .byte $10, $88, $8C, $7E, $7E, $82, $10, $89, $8D, $7E

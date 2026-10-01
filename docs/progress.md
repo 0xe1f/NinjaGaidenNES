@@ -100,14 +100,41 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   `spawn_tail` `$D4F2`, `head_break` `$D52B`, `head_slide` `$D540`,
   `boss_shot` `$D55E`, `boss_shot_fall` `$D5AD`).
   `$D63A`–`$E346` is the rest of a play frame: boss death, Ryu's weapons,
-  lanterns and their power-ups, and each enemy's turn. `scroll_stage`
+  lanterns and their power-ups, and each enemy's turn. Leftover ninpo and
+  leftover time each add one point (`add_point`, `$D67E`). A thrown
+  weapon steps its picture (`step_thrown`, `$D7E9`) and moves
+  (`move_one_thrown`, `$D818`) until it leaves the screen (`lose_thrown`,
+  `$D84C`). `hang_still_room` (`$D977`) is unused. Two lanterns sit on a room that
+  never scrolls, so they never hang: a health refill in Act II, stage 1,
+  and a Windmill Throwing Star in Act VI, stage 2. `unused_enemy_jump`
+  (`$E29E`) and `unused_wall_drop` (`$EC5A`) are unused copies.
+  `stage_x` (`$51`) is how far the stage has scrolled, `stage_x_hi`
+  (`$52`) the high byte, `scroll_pages` (`$53`) how many screens the room
+  scrolls. `screen_col` (`$4E`) is the left edge in 16-pixel columns and
+  `screen_right` (`$4F`) is one screen on. `room` (`$6E`) is which room.
+  `room_back` (`$6F`) bit 7 means he came from the previous room.
+  `from_right` (`$3D`) bit 7 means the room starts at its right end.
+  `ground_ptr` (`$40`) is the ground, and `ground_i` (`$5F`) is where this
+  column starts in it. `scroll_stage`
   (`$F1AC`) scrolls the stage when Ryu is in the middle of the screen.
-  The rest of the bank is source too: spawning enemies, moving Ryu when
+  Loading a room brings the ground on through `scroll_on_right` (`$F2DD`)
+  or `scroll_on_left` (`$F416`). Tile kind `$0A` and up sends him on
+  (`exit_tile`, `$E875`). `load_area_colors` (`$F6B5`) fills the palette
+  packet. The rest of the bank is source too: spawning enemies, moving Ryu when
   the stage stays put, `next_area`, drawing, the clock and status bar,
   and the kick and snare samples. No `INCBIN` left in bank 07.
 - PRG bank 02 (`prg/bank02.asm`) is the pictures and animation scripts
   the engine switches in at `$8000`. Pose tables, each action's pictures,
-  and where the enemies and lanterns stand in a room.
+  and where the enemies and lanterns stand in a room. Nothing shows
+  Ryu's extra walk step (`$05`) or the spare throwing star (`$29`).
+  Nothing starts the running ninja's crouch (`$36`, action `$32`),
+  Kelbeross with his mouth open (`$56`, action `$48`), his small flame
+  (`$58`, action `$4A`), Bloody Malth with his shield in front (`$5E`),
+  Jaquio's other poses (`$6D`–`$6F`, actions `$53`–`$55`), or the fireball
+  with its halves swapped (`$71` and `$72`, action `$58`). Pictures
+  `$75` and `$76` are also never shown. They only sit next to Jaquio's
+  pictures in the list, and their tile number is shared with the thrower
+  and Bomberhead, so nothing says whose they are.
 - PRG bank 00 (`prg/bank00.asm`) is the areas and the rooms. The ground
   for each room, where Ryu enters, the act and stage, and each enemy's
   health, the damage he does, and the points he is worth. `ground_kind`
@@ -241,9 +268,16 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   moon. `devil_mask` (`$86A4`) is the masked devil. `father` (`$86B6`)
   is Ryu's father. `three_faces` (`$86C8`) is three screaming faces.
   `demon_claw` (`$86E2`) is a claw. `grass` (`$86F4`) is the grass.
-  `ryu_runs` (`$8716`) is Ryu running. `bloody_hall` (`$8727`) is the
-  Jaquio and blood on the walls. No script draws that picture. While
-  Foster says a man took the ruins, the scene stamps this same figure.
+  `ryu_runs` (`$8716`) is Ryu running. `bloody_hall` (`$8727`, picture
+  `$1B`) is the Jaquio between blood-stained walls, with striped
+  borders. No script draws it. In the CIA scene, while Foster says a
+  man took the ruins, the scene stamps the same tiles: the Jaquio and
+  the wall beside him. The left wall and the borders never appear.
+  Each block names one of four color slots and stores no color of its
+  own. Just before the stamp, the scene loads sets `$00`, `$11`,
+  `$44`, and `$24`. The figure and the walls name the same slots the
+  stamp uses. The borders name the slot used for the thin red edge of
+  that window. The script never draws the whole picture in those colors.
   `title_ninja`
   (`$8741`) is the word NINJA. `title_logo` (`$8763`) is the Ninja
   Gaiden logo. `forest_top` (`$876F`) is the top of the forest.
@@ -326,8 +360,11 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   cliff with the sword. `tecmo_logo` (`$32`) is TECMO. `act_1`
   through `act_6` (`$50`–`$55`) are ACT I through ACT VI. `the_moon`
   (`$4E`) is the moon during the eclipse. `irene_e` (`$25`) is Irene
-  Lew, one more mouth. `blank_frame` (`$4D`) draws nothing, and a pose
-  rests there so the picture vanishes. `unused_blank` (`$22`) draws
+  Lew, one more mouth. `irene_f` and `irene_g` (`$39`, `$3A`) are her
+  telling Ryu not to give up the statue. `irene_h` and `irene_i`
+  (`$28`, `$29`) are her when she turns on Foster. `foster` (`$2A`)
+  stands on the left through the CIA scene. `blank_frame` (`$4D`) draws
+  nothing, and a pose rests there so the picture vanishes. `unused_blank` (`$22`) draws
   nothing, and no script shows it.
   `pixel_shift` (`$83DF`) is how many pixels to shift a sprite.
   `picture_path` (`$84AB`) is where a picture walks. `walk_right` steps
@@ -368,7 +405,9 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   the jsr. `call_bank_05` (`$BF98`) finishes a call from another bank
   and switches that bank back. `cutscene_routines` (`$BFB3`) is the
   list those calls use. `reset_copy_05` (`$BFDA`) is the same first
-  instructions as reset.
+  instructions as reset. `unused_fill` (`$B2D0`) is unread. `$FF` and
+  `$00` take turns, and every 16 bytes they trade places. A few bytes
+  are neither.
 - CHR file banks 00–15 (`chr/bank00.asm`–`chr/bank15.asm`) are the
   pattern tiles. MMC1 switches 4 KiB at a time, so each file is two
   banks. A room stores one of `$00`–`$0F` in `$56`, and NMI shows that

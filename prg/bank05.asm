@@ -698,13 +698,13 @@ pose_list:
         .word walter_poses
         .word s843F
         .word s8457
-        .word s845A
+        .word irene_plea
         .word malth_poses
         .word malth_laughs
         .word jaquio_poses
         .word s8466
         .word irene_later
-        .word s846D
+        .word irene_turns
         .word s8470
         .word s847A
         .word s847D
@@ -733,8 +733,8 @@ s843F:
 ; Pictures $30 and $31.
 s8457:
         .byte $30, $31, $FF
-; Pictures $39 and $3A.
-s845A:
+; Irene Lew, telling him not to give up the statue. Pictures $39 and $3A.
+irene_plea:
         .byte $39, $3A, $FF
 ; Malth talking, then laughing.
 malth_poses:
@@ -753,8 +753,8 @@ s8466:
 ; Irene Lew. Pictures $23 and $24.
 irene_later:
         .byte $23, $24, $FF
-; Pictures $28 and $29.
-s846D:
+; Irene Lew, when she turns on Foster. Pictures $28 and $29.
+irene_turns:
         .byte $28, $29, $FF
 ; Pictures $46, then $47, then $48.
 s8470:
@@ -838,9 +838,9 @@ actor_pics:
         .word irene_e
         .word jaquio_a
         .word jaquio_b
-        .word s8A8D
-        .word s8AA9
-        .word s8AC5
+        .word irene_h
+        .word irene_i
+        .word foster
         .word s8B03
         .word s8B19
         .word s8B1F
@@ -855,8 +855,8 @@ actor_pics:
         .word s8C1D
         .word s8C27
         .word s8C61
-        .word s8C97
-        .word s8CBB
+        .word irene_f
+        .word irene_g
         .word s8CDF
         .word s8D09
         .word s8D2D
@@ -1088,16 +1088,16 @@ jaquio_a:
 jaquio_b:
         .byte $18, $02, $02, $D0, $20, $D8, $30, $03, $02, $D2, $20, $DA, $30, $04, $02, $D4
         .byte $20, $DC, $30, $05, $02, $D6, $20, $DE, $30, $80
-; Picture $28.
-s8A8D:
+; Irene Lew, when she turns on Foster. Picture $28.
+irene_h:
         .byte $17, $01, $01, $DC, $10, $02, $02, $DE, $10, $E4, $30, $03, $01, $E6, $30, $04
         .byte $01, $EC, $30, $05, $01, $F4, $10, $06, $01, $F6, $10, $80
-; Picture $29.
-s8AA9:
+; The other mouth. Picture $29.
+irene_i:
         .byte $17, $01, $01, $DC, $10, $02, $02, $DE, $10, $F0, $30, $03, $01, $F2, $30, $04
         .byte $01, $EE, $30, $05, $01, $F4, $10, $06, $01, $F6, $10, $80
-; Picture $2A.
-s8AC5:
+; Foster. He stands on the left through the CIA scene. Picture $2A.
+foster:
         .byte $15, $01, $02, $AE, $22, $EC, $32, $02, $02, $B8, $22, $FA, $32, $1A, $01, $F0
         .byte $16, $1B, $01, $F2, $16, $12, $01, $F4, $26, $03, $03, $A8, $10, $BA, $24, $EE
         .byte $34, $04, $03, $AA, $10, $BC, $24, $E4, $34, $05, $03, $AC, $10, $BE, $24, $FA
@@ -1162,13 +1162,13 @@ s8C61:
         .byte $22, $E2, $32, $04, $04, $AA, $10, $F4, $20, $BE, $22, $E4, $32, $05, $03, $AC
         .byte $10, $E8, $22, $E6, $32, $06, $03, $AE, $10, $EA, $24, $F0, $34, $07, $03, $B8
         .byte $10, $F6, $30, $F2, $34, $80
-; Picture $39.
-s8C97:
+; Irene Lew. Picture $39. She tells Ryu not to give him the statue.
+irene_f:
         .byte $1F, $02, $01, $82, $14, $03, $01, $84, $14, $12, $01, $B6, $28, $18, $01, $9E
         .byte $20, $19, $01, $C8, $20, $05, $02, $90, $14, $B2, $30, $06, $01, $D0, $32, $07
         .byte $01, $D2, $32, $80
-; Picture $3A.
-s8CBB:
+; The other mouth. Picture $3A.
+irene_g:
         .byte $1F, $02, $01, $82, $14, $03, $01, $84, $14, $12, $01, $B4, $28, $18, $01, $9E
         .byte $20, $19, $01, $C8, $20, $05, $02, $90, $14, $B2, $30, $06, $01, $D0, $32, $07
         .byte $01, $D2, $32, $80
@@ -2296,7 +2296,8 @@ staff_thanks:
         .byte "  THANK YOU FOR PLAYING."
         .byte line_in, "   AND SEE YOU NEXT.", line_end
 
-; --- $B2D0
+; --- $B2D0  Nothing reads this. $FF and $00 take turns, and every 16 bytes they trade places. A few bytes are neither.
+unused_fill:
         .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00
         .byte $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF
         .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00
@@ -2536,6 +2537,6 @@ cutscene_routines:
 ; --- $BFDA  Same first instructions as reset.
 reset_copy_05:
         inc $FFDA
-        jmp $C03E
+        jmp reset
         .byte $FF, $9F, $4A, $CA, $D0, $F9, $4C, $00, $80, $FF, $00, $FF, $00, $FF, $00, $FF
         .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00, $FF, $00, $DA, $FF, $DA, $FF, $DA, $FF

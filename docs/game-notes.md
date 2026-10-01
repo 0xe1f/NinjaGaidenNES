@@ -69,7 +69,9 @@ that falls out is `$E60D`, indexed by the power-up. 5 ninpo and 10 ninpo
 are both picture `$19`. 5 points and 10 points are both `$22`. The low
 bits of `$E619` pick a later color set of that same picture, so the 10
 looks different from the 5. Ryu picture `$29` is not in that list. It is
-one tile, `$78`, in sprite palette 1, and nothing selects it. The
+one tile, `$78`, in sprite palette 1, and nothing selects it. Picture
+`$05` is one step of his walk. The walk uses `$02`, `$03`, and `$04`,
+and nothing selects `$05`. The
 machine gunner's action `$29` is a different picture, in the enemy table.
 
 The weapon in `$C9` is one of: Throwing Star `$81` (3 ninpo, flies straight),
@@ -82,10 +84,38 @@ and spends no ninpo.
 
 `scroll_stage` (`$F1AC`) runs after `player_control`. When Ryu is in the
 middle of the screen, the stage scrolls with him. Otherwise he moves.
+`stage_x` (`$51`) is how far it has scrolled, and `stage_x_hi` (`$52`)
+is the high byte, one per screen. `scroll_frac` (`$50`) is the fraction
+under that. `scroll_pages` (`$53`) is how many screens this room scrolls.
+`screen_col` (`$4E`) is the column at the left of the screen, 16 pixels
+each, and `screen_right` (`$4F`) is one screen further. A lantern hangs
+when that edge reaches its column. `ground_i` (`$5F`) is where that
+column starts in the ground map, and it steps by 6 bytes a column.
+`from_right` (`$3D`) bit 7 means the room starts at its right end.
+`room` (`$6E`) is which room. `room_back` (`$6F`) bit 7 means he entered
+by going back to the previous room. `scroll_flags` (`$4C`) bit 7 means
+the last column came on from the left. Bit 6 means a column is waiting
+to be drawn, and the enemies wait with it. Bit 0 flips each screen of
+fine scroll.
+Loading a room calls `scroll_on_right` (`$F2DD`) or `scroll_on_left`
+(`$F416`), the column-drawing half of that scroll, so the ground comes on.
+The ground itself is `ground_ptr` (`$40`).
+
+`hang_still_room` (`$D977`) would hang every lantern at once in a room
+that does not scroll. Nothing calls it. `spawn_lanterns` is what hangs
+them as the screen moves. Two lanterns sit on a room that never scrolls,
+so the edge never reaches them. Act II, stage 1, the one-screen room has
+a health refill at column 3. Act VI, stage 2, the one-screen room has a
+Windmill Throwing Star at column 3.
+
+`unused_enemy_jump` (`$E29E`) would mark the saved flags airborne, instead
+of this turn's flags. Nothing calls it. `unused_wall_drop` (`$EC5A`) would
+let go of a wall without turning around or hopping. Nothing reaches it.
 
 After a boss dies, `boss_death` keeps the explosions going and
 `score_leftovers` turns leftover ninpo, then leftover time, into points.
-The bosses are Barbarian, Bomberhead, Basaquer, Kelbeross, and Bloody Malth.
+Each one is one point. The bosses are Barbarian, Bomberhead, Basaquer,
+Kelbeross, and Bloody Malth.
 
 `actor_kind` (`$C195`) has one pointer per enemy, including the shots
 they fire. Each pointer leads to that enemy's actions. Three numbers in
@@ -101,7 +131,8 @@ the ground. The kicker jumps in, then spins a kick. The runner hops over gaps.
 The bat rises and falls. One dog runs and leaps; the other sits until
 Ryu is close. The bird steers toward him. The jetpack ninja throws a
 shuriken when he is near. The running ninja jumps at a gap or when Ryu
-is close. The stone man paces, then throws a ring that comes back. The
+is close. Picture `$36` is a crouch. Action `$32` would show it, and nothing
+starts that action. The stone man paces, then throws a ring that comes back. The
 ghouls hop, a short hop while Ryu is far and a long one when he is
 close. One of them waits until he is close. A shot keeps the speed it
 was given. `leave_actor` is an action that changes nothing: the flying
@@ -112,12 +143,17 @@ devil's fight, the last boss's head, and his tail.
 a wait or a throw.
 
 The Barbarian walks in, stops, and swings his sword, then walks again.
+The swing raises the sword, thrusts it fully out, then holds it there.
 Bomberhead swings a sickle that sits further out as his pose changes.
 Basaquer hops in an arc, reversing sideways each time he lands. When he
 is the only one left, he fires three shots, one above the other, on
 half the frames. Kelbeross is two of the same creature, facing opposite
-ways. Each waits, jumps, and breathes a fireball. Bloody Malth walks,
-stops, and calls lightning down beside him. The bolt then falls toward
+ways. Each waits, jumps, and breathes a fireball. Picture `$56` is the same
+creature with his mouth open. Action `$48` would show it. Picture `$58`
+is a smaller flame. Action `$4A` would show it. Nothing starts either
+action. Bloody Malth walks,
+stops, and calls lightning down beside him. Picture `$5E` holds his
+shield up in front, and no action lists it. The bolt then falls toward
 Ryu. The Masked Devil is a large fighter with a sword out to either
 side. He walks in from the right. An orb sits in the middle and never
 moves. His fireballs appear at that spot and steer toward him. Jaquio
@@ -128,7 +164,15 @@ action `$56`, picture `$70`. The fireballs start action `$57`, pictures
 `$54`, and `$55`, and nothing starts those actions, so they never show.
 Action `$58` shows `$71` and `$72`, the same tiles as the fireballs with
 the halves swapped, and nothing starts that either. Pictures `$75` and
-`$76` are tile `$A6` twice, flipped differently. No action lists them.
+`$76` each show tile `$A6` twice, with the two copies flipped
+differently. No action lists them. They sit in the picture list after
+his fireballs (`$73` and `$74`) and before the Masked Devil (`$77`),
+which is the only reason to group them with him. That same tile number
+is one piece of his large pictures `$6E`, `$6F`, and `$70`, and the
+thrower and Bomberhead use it too. Each room has its own sprite bank,
+so the number is not the graphic. Nothing in the game says `$75` and
+`$76` are his.
+
 An enemy's picture comes only from the action he is on
 (`set_enemy_action` at `$E254`, then `step_enemy` at `$DFE9`). The last boss is a
 large creature. His body is drawn behind the scenery. His head uses the
@@ -191,9 +235,18 @@ and `temple_demon` are the rooms. `blank_strip`, `blank_purple`, and
 `gold_armor`, `looking_down`, `red_close`, `office_wall`,
 `office_stripes`, `irene_held_close`, `ryu_profile`, `ryu_face`,
 `ryu_back`, `ryu_edge`, `a_hand`, and `leaves`. `the_end` closes the
-last scene. `bloody_hall` is the Jaquio between blood-stained
-walls. No script draws that picture. While Foster says a man took the
-ruins, the scene stamps this same figure. `push_start_spare` is a
+last scene. `bloody_hall` (`$8727`) is picture `$1B`, the Jaquio
+between blood-stained walls, with striped borders down each side.
+No script draws that picture. In the CIA scene, while Foster says a
+man took the ruins, the scene stamps the same tiles: the Jaquio and
+the wall beside him. The left wall and the striped borders never
+appear. Each block names one of four color slots and stores no color
+of its own. Just before the stamp, the scene loads background color
+sets `$00`, `$11`, `$44`, and `$24`. The figure and the walls name
+the same slots the stamp uses, so they take those colors: a purple
+figure, and a gold and pink wall. The borders name the slot used for
+the thin red edge of that window. The script never draws the whole
+picture in those colors. `push_start_spare` is a
 picture no script draws. From
 `$A2A2` through `$A7D8` the bytes match the end of bank 04's scripts,
 and bank 04 is the copy that runs. `song_copy` (`$B2BE`) is the same songs as bank
@@ -220,6 +273,13 @@ means the pose comes from `pose_list` (`$8408`); otherwise that byte is
 one picture from `actor_pics` (`$84B9`). `pose_time` (`$92C3`) is how
 long each pose stays. The high half of that byte is reloaded when the
 low half runs out.
+
+`foster` (`$2A`) stands on the left through the CIA scene. `irene_f`
+and `irene_g` (`$39`, `$3A`) are Irene telling Ryu not to give up the
+statue. `irene_h` and `irene_i` (`$28`, `$29`) are Irene when she
+turns on Foster. `unused_fill` (`$B2D0`) is unread. `$FF` and `$00`
+take turns there, and every 16 bytes they trade places. A few bytes
+are neither.
 
 Irene Lew is pose list 1, pictures `$17` and `$18`, and list `$0A`,
 pictures `$23` and `$24`. Picture `$25` is one more mouth.

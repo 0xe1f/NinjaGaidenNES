@@ -27,6 +27,19 @@ ppumask_shadow = $1D
 nmi_latch      = $1F
 pad_cur        = $28
 pad_edge       = $29
+from_right     = $3D   ; bit 7, this room starts at its right end
+ground_ptr     = $40   ; this room's ground
+ground_ptr_hi  = $41
+scroll_flags   = $4C   ; bit 7 the last column came from the left. Bit 6 a column is waiting, so enemies wait. Bit 0 flips each screen of fine scroll.
+screen_col     = $4E   ; column at the left of the screen. Each column is 16 pixels.
+screen_right   = $4F   ; column at the right edge, one screen on
+scroll_frac    = $50   ; fraction under the stage scroll
+stage_x        = $51   ; how far the stage has scrolled
+stage_x_hi     = $52   ; the high byte. One per screen.
+scroll_pages   = $53   ; how many screens this room scrolls
+ground_i       = $5F   ; where this column starts in the ground map
+room           = $6E   ; which room
+room_back      = $6F   ; bit 7, he entered by going back to the previous room
 packet         = $2B   ; screen update pointer; the high byte is the next address
 picture_at     = $E4   ; where a picture is drawn
 picture_at_hi  = $E5   ; the high byte of that place
@@ -173,9 +186,9 @@ reset:
         jsr boot_banks          ; does not return; jumps to reset_cont
 reset_cont:
         jsr wait_nmi
-        lda $4C
-        and #$BF                ; clear bit 6
-        sta $4C
+        lda scroll_flags
+        and #$BF                ; the waiting column has been drawn
+        sta scroll_flags
         jsr sprite0_split
         lda pad_edge
         bit $1E
@@ -200,8 +213,8 @@ reset_cont:
 @continue:
         jsr player_control
         jsr scroll_stage
-        bit $4C
-        bvs @skip_intro
+        bit scroll_flags
+        bvs @skip_intro         ; a column is waiting, so enemies wait
         jsr tick_clock
         jsr spawn_enemies
         jsr run_enemies
@@ -3183,7 +3196,7 @@ lD646:
 lD659:
         rts
 
-; --- $D65A  Turn leftover ninpo, then leftover time, into points.
+; --- $D65A  Turn leftover ninpo, then leftover time, into points. Each one is one point.
 score_leftovers:
         dec $04BA
         bpl lD694
@@ -3198,11 +3211,13 @@ lD66A:
         lda ninpo
         beq lD678
         dec ninpo
-        jmp $D67E
+        jmp add_point
 lD678:
         lda timer
         beq lD68C
         dec timer
+; --- $D67E  Add one point.
+add_point:
         clc
         lda score
         adc #$01
@@ -3309,8 +3324,8 @@ lD742:
         lda thrown
         and bit_mask,x
         beq lD74F
-        jsr $D818
-        jsr lD7E8+1
+        jsr move_one_thrown
+        jsr step_thrown
 lD74F:
         dex
         bpl lD742
@@ -3328,11 +3343,11 @@ lD753:
         lda #$00
         sta weapon
 lD76B:
-        jmp lD7E8+1
+        jmp step_thrown
 lD76E:
         ldx #$00
-        jsr $D818
-        jsr lD7E8+1
+        jsr move_one_thrown
+        jsr step_thrown
         bit $04BD
         bpl lD7AF
         sec
@@ -3392,6 +3407,8 @@ lD7D0:
         sta $04BD
 lD7E8:
         rts
+; --- $D7E9  The next picture of a thrown weapon.
+step_thrown:
         lda $CB
         beq lD7F0
         dec $CB
@@ -3420,6 +3437,8 @@ lD80C:
         tya
         sta $CC
         rts
+; --- $D818  Move this thrown weapon. The Invincible Fire-Wheel stays on Ryu.
+move_one_thrown:
         lda weapon
         cmp #$84                        ; Invincible Fire-Wheel
         beq lD843
@@ -3427,17 +3446,17 @@ lD80C:
         lda $04BB,x
         adc $04C1,x
         cmp #$08
-        bcc lD84C
+        bcc lose_thrown
         cmp #$F8
-        bcs lD84C
+        bcs lose_thrown
         sta $04BB,x
         clc
         lda $04BE,x
         adc $04C4,x
         cmp #$F8
-        bcs lD84C
+        bcs lose_thrown
         cmp #$40
-        bcc lD84C
+        bcc lose_thrown
         sta $04BE,x
         rts
 lD843:
@@ -3445,7 +3464,8 @@ lD843:
         sta $04BB
         sta $04BE
         rts
-lD84C:
+; --- $D84C  This thrown weapon left the screen.
+lose_thrown:
         lda bit_mask,x
         eor #$FF
         and thrown
@@ -3473,7 +3493,7 @@ lD865:
         sbc #$08
         sta $37
         stx $CE
-        jsr $D8AD
+        jsr draw_thrown_pic
         ldx $CE
 lD880:
         dex
@@ -3504,6 +3524,8 @@ lD8A1:
         lda height
         sbc #$10
         sta $37
+; --- $D8AD  Draw this thrown weapon's picture.
+draw_thrown_pic:
         lda $CD
         asl
         tay
@@ -3534,34 +3556,36 @@ spawn_lanterns:
         stx MMC1_PRG
         stx MMC1_PRG
         stx MMC1_PRG
-        bit $4C
-        bmi lD906
+        bit scroll_flags
+        bmi lD906                       ; moving left, so watch the left edge
         ldy $C7
         cpy $C1
         bcs lD965
         lda ($9C),y
-        cmp $4F
+        cmp screen_right                ; his column reached the right edge
         bne lD965
         clc
         lda $C7
         adc #$01
         sta $C7
         sty $00
-        ldy #$FF
-        jmp $D919
+        ldy #$FF                        ; hang on the right edge
+        jmp hang_lantern
 lD906:
         ldy $C6
         beq lD90B
         dey
 lD90B:
-        ldx $4E
+        ldx screen_col
         inx
         txa
-        cmp ($9C),y
+        cmp ($9C),y                     ; his column reached the left edge
         bne lD965
         sty $C6
         sty $00
-        ldy #$00
+        ldy #$00                        ; hang on the left edge
+; --- $D919  Hang it on the edge the screen is moving toward.
+hang_lantern:
         lda $00
         and #$03
         tax
@@ -3609,9 +3633,13 @@ lD966:
         lda #$00
         sta $04D1,x
         rts
-        lda $53
+; --- $D977  Nothing calls this. A room that does not scroll would hang every lantern at once.
+hang_still_room:
+        lda scroll_pages
         beq lD9B8
         rts
+; --- $D97C  No lanterns are out.
+clear_lanterns:
         ldx #$05
         lda #$00
 lD980:
@@ -3620,9 +3648,15 @@ lD980:
         bpl lD980
         sta lantern_bits
         rts
+; --- $D989  Scrolling left, this lantern left the screen.
+drop_lantern_left:
         dec $C7
-        jmp $D990
+        jmp drop_lantern
+; --- $D98E  Scrolling right, this lantern left the screen.
+drop_lantern_right:
         inc $C6
+; --- $D990  Take this lantern down.
+drop_lantern:
         lda bit_mask,x
         eor #$FF
         and lantern_bits
@@ -3779,12 +3813,12 @@ slash_lantern:
         lda action
         cmp #$07                        ; spinning sword
         bne lDAB5
-        jmp $DAEF
+        jmp break_lantern
 lDAB5:
         lda weapon
         cmp #$84                        ; Invincible Fire-Wheel
         bne lDB11
-        jmp $DAEF
+        jmp break_lantern
 lDABE:
         bit ryu_flags
         bvs lDACE
@@ -3813,7 +3847,9 @@ lDAD8:
 lDAE8:
         cmp #$10
         bcs lDB11
-        jmp lDB67
+        jmp drop_powerup
+; --- $DAEF  The spinning sword or the Invincible Fire-Wheel is close enough.
+break_lantern:
         sec
         lda $04D9,x
         sbc ryu_x
@@ -3833,7 +3869,7 @@ lDAFC:
         adc #$01
 lDB0D:
         cmp #$11
-        bcc lDB67
+        bcc drop_powerup
 lDB11:
         lda thrown
         and #$07
@@ -3874,12 +3910,13 @@ lDB4F:
         sta sound
         lda weapon
         cmp #$82                        ; Windmill Throwing Star keeps going
-        beq lDB67
+        beq drop_powerup
         lda bit_mask,y
         eor #$FF
         and thrown
         sta thrown
-lDB67:
+; --- $DB67  The lantern breaks, and the power-up falls out.
+drop_powerup:
         ldy $04C9,x
         lda $E60D,y
         sta $04CD,x
@@ -4994,6 +5031,8 @@ enemy_jump:
         ora #$04
         sta enemy_flags
         rts
+; --- $E29E  Nothing calls this. It would mark the saved flags airborne.
+unused_enemy_jump:
         sta enemy_y_spd,x
         lda #$00
         sta enemy_y_frac,x
@@ -5183,14 +5222,14 @@ lose_life:
         lda #$00
         jsr set_prg
         lda $AF2C,x
-        sta $6E
+        sta room
         stx area
 @same_area:
         lda #$00
         sta downed
         sta thrown
         sta weapon
-        sta $6F
+        sta room_back
         sta hourglass_on                         ; Hourglass ends
         lda #$10
         sta health              ; full health
@@ -5220,7 +5259,7 @@ lose_life:
         ldx area
         lda $AFC6,x
         sta sound
-        jsr lF6B5
+        jsr load_area_colors
         jsr show_packet
         jmp to_hold
 @over:
@@ -5228,7 +5267,7 @@ lose_life:
         lda #$00
         jsr set_prg
         lda $AF2C,x
-        sta $6E
+        sta room
         lda #$00
         sta score
         sta score_hi
@@ -5323,7 +5362,7 @@ lose_life:
         sta sound
         jsr prepare_area
         jsr load_room
-        jsr lF6B5
+        jsr load_area_colors
         jsr show_packet
         jmp to_hold
 
@@ -5347,7 +5386,7 @@ boot_banks:
         jsr set_prg             ; bank 0 at $8000
         ldx area
         lda $AF2C,x
-        sta $6E
+        sta room
         lda $AFC6,x
         sta sound
         jsr prepare_area
@@ -5361,22 +5400,22 @@ spawn_enemies:
         bmi lE5B2
         bit $B4
         bmi lE5B2
-        lda $4E
+        lda screen_col
         sta $00
-        lda $4C
-        eor $3D
+        lda scroll_flags
+        eor from_right                  ; which end of the room he came from
         sta $04
         bpl lE58C
-        bit $3D
+        bit from_right
         bpl lE581
         clc
-        lda $4E
+        lda screen_col
         adc #$0E
         sta $00
         bne lE58C
 lE581:
         sec
-        lda $4E
+        lda screen_col
         sbc #$0D
         bpl lE58A
         lda #$00
@@ -5393,7 +5432,7 @@ lE595:
         bne lE5A6
         stx $05
         sty $06
-        jsr lE5B3
+        jsr place_enemy
         ldx $05
         ldy $06
 lE5A6:
@@ -5407,7 +5446,8 @@ lE5AD:
         bpl lE595
 lE5B2:
         rts
-lE5B3:
+; --- $E5B3  Put this enemy on screen, unless he is already out.
+place_enemy:
         sty $01
         tya
         and #$07
@@ -5537,7 +5577,7 @@ lE67E:
         jsr tile_at
         cpy #$0A
         bcc lE6AB
-        jmp lE875
+        jmp exit_tile
 lE6AB:
         lda ground_flag,y
         sta $8E
@@ -5559,7 +5599,7 @@ lE6AB:
         jsr tile_at
         cpy #$0A
         bcc lE6D8
-        jmp lE875
+        jmp exit_tile
 lE6D8:
         lda ground_flag,y
         sta $03
@@ -5666,7 +5706,7 @@ tile_at:
         tay
         clc
         lda ground_col,y
-        adc $5F
+        adc ground_i
         bcs lE7A3
         cmp #$C0
         bcc lE7A6
@@ -5772,7 +5812,7 @@ move_ryu:
         lda ryu_x
         cmp #$F0
         bcs lE858
-        bne lE859
+        bne step_right
 lE846:
         lsr
         bcc lE858
@@ -5782,10 +5822,11 @@ lE846:
         lda ryu_x
         cmp #$10
         bcc lE858
-        jmp lE867
+        jmp step_left
 lE858:
         rts
-lE859:
+; --- $E859  Move Ryu right.
+step_right:
         clc
         lda ryu_x_frac
         adc speed_x_frac
@@ -5794,7 +5835,8 @@ lE859:
         adc speed_x
         sta ryu_x
         rts
-lE867:
+; --- $E867  Move Ryu left.
+step_left:
         sec
         lda ryu_x_frac
         sbc speed_x_frac
@@ -5803,7 +5845,8 @@ lE867:
         sbc speed_x
         sta ryu_x
         rts
-lE875:
+; --- $E875  Tile kind $0A and up. This one sends Ryu on.
+exit_tile:
         bit downed
         bvs lE898
         tya
@@ -5845,36 +5888,36 @@ next_area:
         lda #$00
         jsr set_prg
         lda $AF2C,x
-        sta $6E
+        sta room
         jsr prepare_area
         jsr load_room
         lda #$00
         jsr set_prg
         ldx area
         lda $AF2C,x
-        sta $6E
+        sta room
         lda $AFC6,x
         sta sound
         jmp fade_in
 lE8D2:
-        inc $6E
+        inc room
         lda #$00
-        sta $6F
+        sta room_back
         jsr clear_sprites
         jsr blank_palette
         jsr wait_nmi
         jsr load_room
-        jsr lF6B5
+        jsr load_area_colors
         jmp show_packet
 lE8EA:
-        dec $6E
+        dec room
         lda #$80
-        sta $6F
+        sta room_back
         jsr clear_sprites
         jsr blank_palette
         jsr wait_nmi
         jsr load_room
-        jsr lF6B5
+        jsr load_area_colors
         jmp show_packet
 ; --- $E902  Load this room's layout.
 load_room:
@@ -5882,16 +5925,16 @@ load_room:
         jsr clear_sprites
         lda #$00
         jsr set_prg
-        lda $6E
+        lda room
         tax
         asl
         tay
         lda $AC30,y
-        sta $40
+        sta ground_ptr
         lda $AC31,y
-        sta $41
+        sta ground_ptr_hi
         lda #$00
-        sta $5F
+        sta ground_i
         lda $AC90,x
         and #$0F
         sta $56
@@ -5899,29 +5942,29 @@ load_room:
         lda $AD20,x
         sta $00
         and #$7F
-        sta $53
+        sta scroll_pages
         lda $00
         and #$80
-        sta $3D
-        eor $6F
+        sta from_right
+        eor room_back
         sta $17
         bpl lE97F
         lda #$60
         sta $5D
         lda $00
         and #$7F
-        sta $52
+        sta stage_x_hi
         lda $00
         and #$0F
         asl
         tax
         clc
-        lda $40
+        lda ground_ptr
         adc $E95F,x
-        sta $40
-        lda $41
+        sta ground_ptr
+        lda ground_ptr_hi
         adc $E960,x
-        sta $41
+        sta ground_ptr_hi
         bne lE985
 
 lE95F:
@@ -5945,12 +5988,12 @@ lE95F:
 lE97F:
         lda #$00
         sta $5D
-        sta $52
+        sta stage_x_hi
 lE985:
         lda #$03
         sta $5E
         lda #$00
-        sta $4C
+        sta scroll_flags
         sta $67
         sta $69
         sta speed_x_frac
@@ -5968,7 +6011,7 @@ lE985:
         stx $6C
 lE9AB:
         sta $10
-        jsr $F2DD
+        jsr scroll_on_right
         jsr wait_nmi
         jsr sprite0_split
         lda $10
@@ -5976,7 +6019,7 @@ lE9AB:
         dex
         txa
         bne lE9AB
-        jmp lE9E0
+        jmp place_ryu
 lE9C0:
         ldx #$07
         stx $68
@@ -5987,7 +6030,7 @@ lE9C0:
         stx $6C
 lE9CE:
         sta $10
-        jsr $F416
+        jsr scroll_on_left
         jsr wait_nmi
         jsr sprite0_split
         lda $10
@@ -5995,10 +6038,11 @@ lE9CE:
         dex
         txa
         bne lE9CE
-lE9E0:
+; --- $E9E0  The room is on screen. Put Ryu where it starts.
+place_ryu:
         lda #$00
-        sta $50
-        sta $51
+        sta scroll_frac
+        sta stage_x
         sta $A0
         sta $A1
         sta $A2
@@ -6016,8 +6060,8 @@ lE9E0:
         sta ppuctrl_shadow
         lda #$04
         sta sprite_slot
-        ldx $6E
-        bit $6F
+        ldx room
+        bit room_back
         bmi lEA1A
         lda $AD50,x
         sta ryu_x
@@ -6040,7 +6084,7 @@ lEA2E:
         sta ryu_flags
         lda #$02
         jsr set_prg
-        lda $6E
+        lda room
         tax
         asl
         tay
@@ -6087,7 +6131,7 @@ lEA8D:
         sta $B5
 lEA97:
         jsr free_all_enemies
-        jsr $D97C
+        jsr clear_lanterns
         lda #$00
         sta pose
         lda #$10
@@ -6320,6 +6364,8 @@ lEC3E:
         sta touching                         ; let go
         lda #$05
         jmp set_action                  ; jump off
+; --- $EC5A  Nothing reaches this. Letting go of a wall without turning or hopping.
+unused_wall_drop:
         bit $04B8
         bmi lEC64
         lda #$0F
@@ -7111,21 +7157,21 @@ lF19D:
 
 ; --- $F1AC  If Ryu is in the middle of the screen, scroll the stage with him. Otherwise move him.
 scroll_stage:
-        lda $52
-        sta $4E
-        lda $51
-        lsr $4E
+        lda stage_x_hi
+        sta screen_col
+        lda stage_x
+        lsr screen_col
         ror
-        lsr $4E
+        lsr screen_col
         ror
-        lsr $4E
+        lsr screen_col
         ror
-        lsr $4E
+        lsr screen_col
         ror
-        sta $4E
+        sta screen_col                  ; left edge, in 16-pixel columns
         clc
         adc #$10
-        sta $4F
+        sta screen_right                ; one screen further
         lda action
         cmp #$02
         beq lF21B
@@ -7143,21 +7189,21 @@ scroll_stage:
         cmp #$81
         bne lF200
 lF1E5:
-        lda $53
-        beq lF200
+        lda scroll_pages
+        beq lF200                       ; this room does not scroll
         lda pad_cur
         lsr
         bcc lF1F9
-        lda $52
-        beq lF203
-        cmp $53
-        bne lF203
-        jmp move_ryu
+        lda stage_x_hi
+        beq lF203                       ; still at the left end
+        cmp scroll_pages
+        bne lF203                       ; not at the right end yet
+        jmp move_ryu                    ; the right end of the room
 lF1F9:
         lsr
         bcc lF21B
-        bit $52
-        bpl lF203
+        bit stage_x_hi
+        bpl lF203                       ; not past the left end
 lF200:
         jmp move_ryu
 lF203:
@@ -7181,15 +7227,15 @@ lF21B:
 ; --- $F21C  Scroll the stage to the right.
 scroll_right:
         clc
-        lda $50
+        lda scroll_frac
         adc speed_x_frac
-        sta $50
-        lda $51
+        sta scroll_frac
+        lda stage_x
         adc speed_x
-        sta $51
-        lda $52
+        sta stage_x
+        lda stage_x_hi
         adc #$00
-        sta $52
+        sta stage_x_hi
         clc
         lda $4A
         adc speed_x_frac
@@ -7202,13 +7248,13 @@ scroll_right:
         and #$0F
         sta $4B
         clc
-        lda $5F
-        adc #$06
+        lda ground_i
+        adc #$06                        ; next column of the ground
         cmp #$C0
         bcc lF24F
         lda #$00
 lF24F:
-        sta $5F
+        sta ground_i
 lF251:
         clc
         lda $A2
@@ -7218,9 +7264,9 @@ lF251:
         adc speed_x
         sta $A3
         bcc lF266
-        lda $4C
+        lda scroll_flags
         eor #$01
-        sta $4C
+        sta scroll_flags
 lF266:
         clc
         lda $A4
@@ -7261,7 +7307,7 @@ lF29F:
         sbc speed_x
         sta $04BB,x
         bcs lF2B4
-        jsr lD84C
+        jsr lose_thrown
 lF2B4:
         dex
         bpl lF29F
@@ -7278,24 +7324,26 @@ lF2B9:
         sbc speed_x
         bcs lF2D7
         stx $00
-        jsr $D98E
+        jsr drop_lantern_right
         ldx $00
 lF2D7:
         sta $04D9,x
 lF2DA:
         dex
         bpl lF2B9
-        lda $4C
+; --- $F2DD  Bring on the next column to the right. Loading a room calls this.
+scroll_on_right:
+        lda scroll_flags
         bpl lF2F2
         and #$7F
-        sta $4C
+        sta scroll_flags
         clc
-        lda $40
+        lda ground_ptr
         adc #$60
-        sta $40
-        lda $41
+        sta ground_ptr
+        lda ground_ptr_hi
         adc #$00
-        sta $41
+        sta ground_ptr_hi
 lF2F2:
         clc
         lda $67
@@ -7334,12 +7382,12 @@ lF31D:
         sta $6A
         jsr load_ground
         clc
-        lda $40
+        lda ground_ptr
         adc #$06
-        sta $40
-        lda $41
+        sta ground_ptr
+        lda ground_ptr_hi
         adc #$00
-        sta $41
+        sta ground_ptr_hi
         clc
         lda $5D
         adc #$0C
@@ -7354,15 +7402,15 @@ lF34F:
 ; --- $F350  Scroll the stage to the left.
 scroll_left:
         sec
-        lda $50
+        lda scroll_frac
         sbc speed_x_frac
-        sta $50
-        lda $51
+        sta scroll_frac
+        lda stage_x
         sbc speed_x
-        sta $51
-        lda $52
+        sta stage_x
+        lda stage_x_hi
         sbc #$00
-        sta $52
+        sta stage_x_hi
         sec
         lda $4A
         sbc speed_x_frac
@@ -7374,13 +7422,13 @@ scroll_left:
         and #$0F
         sta $4B
         sec
-        lda $5F
+        lda ground_i
         sbc #$06
         cmp #$FA
         bne lF381
         lda #$BA
 lF381:
-        sta $5F
+        sta ground_i
 lF383:
         sec
         lda $A2
@@ -7390,9 +7438,9 @@ lF383:
         sbc speed_x
         sta $A3
         bcs lF398
-        lda $4C
+        lda scroll_flags
         eor #$01
-        sta $4C
+        sta scroll_flags
 lF398:
         sec
         lda $A4
@@ -7437,7 +7485,7 @@ lF3D8:
         adc speed_x
         sta $04BB,x
         bcc lF3ED
-        jsr lD84C
+        jsr lose_thrown
 lF3ED:
         dex
         bpl lF3D8
@@ -7454,24 +7502,26 @@ lF3F2:
         adc speed_x
         bcc lF410
         stx $00
-        jsr $D989
+        jsr drop_lantern_left
         ldx $00
 lF410:
         sta $04D9,x
 lF413:
         dex
         bpl lF3F2
-        lda $4C
+; --- $F416  Bring on the next column to the left. Loading a room calls this.
+scroll_on_left:
+        lda scroll_flags
         bmi lF42B
         ora #$80
-        sta $4C
+        sta scroll_flags
         sec
-        lda $40
+        lda ground_ptr
         sbc #$60
-        sta $40
-        lda $41
+        sta ground_ptr
+        lda ground_ptr_hi
         sbc #$00
-        sta $41
+        sta ground_ptr_hi
 lF42B:
         sec
         lda $69
@@ -7485,12 +7535,12 @@ lF42B:
         sta $6A
         jsr load_ground
         sec
-        lda $40
+        lda ground_ptr
         sbc #$06
-        sta $40
-        lda $41
+        sta ground_ptr
+        lda ground_ptr_hi
         sbc #$00
-        sta $41
+        sta ground_ptr_hi
         sec
         lda $5D
         sbc #$0C
@@ -7524,9 +7574,9 @@ lF47C:
 
 ; --- $F47E  Queue the next column of the stage.
 queue_column:
-        lda $4C
-        ora #$40
-        sta $4C
+        lda scroll_flags
+        ora #$40                        ; a column is waiting
+        sta scroll_flags
         lda #$00
         sta MMC1_PRG
         sta MMC1_PRG
@@ -7572,7 +7622,7 @@ queue_column:
         ldy #$05
         sty $02
 lF4F1:
-        lda ($40),y
+        lda (ground_ptr),y
         sta a:$0004,y
         dey
         bpl lF4F1
@@ -7627,10 +7677,12 @@ copy_block:
         sta $14
         ldy $00
         lda ($13),y
-        jsr $F568
+        jsr copy_quad
         ldy $00
         dey
         lda ($13),y
+; --- $F568  A is a block. Copy its four tiles into this column.
+copy_quad:
         ldx #$00
         stx $03
         asl
@@ -7695,7 +7747,7 @@ sprite0_split:
         sta PPUSCROLL
         lda $A9
         sta PPUSCROLL
-        lda $4C
+        lda scroll_flags
         and #$01                ; nametable select
         ora ppuctrl_shadow
         sta PPUCTRL
@@ -7715,7 +7767,7 @@ load_ground:
         sty $01
 lF603:
         ldy $00
-        lda ($40),y
+        lda (ground_ptr),y
         ldy #$00
         sty $02
         asl
@@ -7745,7 +7797,7 @@ set_action:
         asl
         tay
         lda #$02
-        jsr $C028
+        jsr set_prg
         lda $8600,y
         sta $13
         lda $8601,y
@@ -7769,7 +7821,7 @@ black_fill:
         sta $0727,x
         dex
         bpl black_fill
-        jsr lF6B5
+        jsr load_area_colors
         ldy #$03
         lda #$0F
         sta $0F
@@ -7796,7 +7848,7 @@ one_color:
         rts
 ; --- $F68C  Fade out.
 fade_out:
-        jsr lF6B5
+        jsr load_area_colors
         ldy #$03
 fade_step:
         ldx #$1F
@@ -7819,7 +7871,8 @@ keep_color:
         dey
         bpl fade_step
         rts
-lF6B5:
+; --- $F6B5  Load this area's colors.
+load_area_colors:
         lda #$04
         sta $00
         lda #$00
@@ -7832,31 +7885,31 @@ lF6B5:
         sta $0725
         sta $0723
         sta $0747
-        jsr lF745
+        jsr copy_color_set
         ldy area
         lda $AF42,y
-        jsr lF745
+        jsr copy_color_set
         ldy area
         lda $AF58,y
-        jsr lF745
+        jsr copy_color_set
         ldy area
         lda $BFE0,y
-        jsr lF745
+        jsr copy_color_set
         lda #$00
         sta $01
         lda #$B1
         sta $02
         lda #$00
-        jsr lF745
+        jsr copy_color_set
         lda #$01
-        jsr lF745
-        ldy $6E
+        jsr copy_color_set
+        ldy room
         lda $ACC0,y
-        jsr lF745
-        ldy $6E
+        jsr copy_color_set
+        ldy room
         lda $ACF0,y
-        jsr lF745
-        ldx $6E
+        jsr copy_color_set
+        ldx room
         lda $AC90,x
         lsr
         lsr
@@ -7879,7 +7932,8 @@ lF6B5:
         sta $0700
         sta $0724
         rts
-lF745:
+; --- $F745  Copy one three-color set into the packet.
+copy_color_set:
         sta $03
         asl
         clc

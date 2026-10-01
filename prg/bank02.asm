@@ -1432,6 +1432,7 @@ shuriken_action_30:
 running_ninja_action_31:
         .byte $00, $35
         .byte $00
+; Unused. He crouches. Nothing starts this.
 action_32:
         .byte $00, $36
         .byte $00
@@ -1492,14 +1493,14 @@ barbarian_action_3D:
         .byte $18, $46
         .byte $18, $45
         .byte $18, $46
-; The Barbarian.
+; He swings his sword.
 barbarian_action_3E:
         .byte $1E, $47
-        .byte $04, $48
-        .byte $14, $49
+        .byte $04, $48                  ; sword fully out
+        .byte $14, $49                  ; holds the sword out
         .byte $1E, $47
-        .byte $04, $48
-        .byte $14, $49
+        .byte $04, $48                  ; sword fully out
+        .byte $14, $49                  ; holds the sword out
         .byte $00
 ; Bomberhead.
 bomberhead_action_3F:
@@ -1540,6 +1541,7 @@ kelbeross_action_46:
 kelbeross_action_47:
         .byte $00, $57
         .byte $00
+; Unused. His mouth is open. Nothing starts this.
 action_48:
         .byte $10, $56
         .byte $00
@@ -1548,6 +1550,7 @@ kelbeross_action_49:
         .byte $06, $59
         .byte $06, $5A
         .byte $00
+; Unused. A small flame. Nothing starts this.
 action_4A:
         .byte $00, $58
         .byte $00
@@ -1604,12 +1607,15 @@ explosion_action_52:
         .byte $04, $7A
         .byte $02, $7B
         .byte $00
+; Unused. Another pose of Jaquio. Nothing starts this.
 action_53:
         .byte $00, $6D
         .byte $00
+; Unused. Another pose of Jaquio. Nothing starts this.
 action_54:
         .byte $00, $6E
         .byte $00
+; Unused. Another pose of Jaquio. Nothing starts this.
 action_55:
         .byte $00, $6F
         .byte $00
@@ -1622,6 +1628,7 @@ jaquio_action_57:
         .byte $08, $73
         .byte $06, $74
         .byte $00
+; Unused. The fireball, with the halves swapped. Nothing starts this.
 action_58:
         .byte $06, $71
         .byte $08, $72
@@ -1777,6 +1784,7 @@ ryu_walk_pic_04:
         .byte $22, $01, $E8
         .byte $24, $F5, $F8
         .byte $26, $FD, $F8
+; Unused. One step of his walk.
 ryu_pic_05:
         .byte $04
         .byte $20, $F9, $E9
@@ -1988,6 +1996,7 @@ windmill_star_pic_26:
         .byte $02
         .byte $76, $00, $F8
         .byte $76, $F8, $F8
+; Unused. A throwing star. Nothing selects it.
 ryu_pic_29:
         .byte $01
         .byte $78, $FC, $F8
@@ -2502,6 +2511,7 @@ running_ninja_pic_35:
         .byte $B4, $00, $E8
         .byte $B2, $F8, $F8
         .byte $B0, $00, $F8
+; Unused. He crouches. Nothing starts this.
 enemy_pic_36:
         .byte $04
         .byte $B6, $F8, $EB
@@ -2657,7 +2667,7 @@ barbarian_pic_47:
         .byte $B6, $F5, $F8
         .byte $BC, $FD, $F8
         .byte $BE, $05, $F8
-; The Barbarian.
+; Sword fully out.
 barbarian_pic_48:
         .byte $0D
         .byte $C2, $F9, $D8
@@ -2673,7 +2683,7 @@ barbarian_pic_48:
         .byte $B6, $F5, $F8
         .byte $E0, $FD, $F8
         .byte $E2, $05, $F8
-; The Barbarian.
+; Holds the sword out.
 barbarian_pic_49:
         .byte $0B
         .byte $C2, $F9, $D8
@@ -2800,6 +2810,7 @@ kelbeross_pic_55:
         .byte $DA, $F9, $F8
         .byte $DC, $01, $F8
         .byte $DE, $09, $F8
+; Unused. His mouth is open. Nothing starts this.
 enemy_pic_56:
         .byte $08
         .byte $D0, $F1, $E8
@@ -2823,6 +2834,7 @@ kelbeross_pic_57:
         .byte $BE, $09, $E8
         .byte $E8, $F1, $F8
         .byte $EA, $F9, $F8
+; Unused. A small flame. Nothing starts this.
 enemy_pic_58:
         .byte $01
         .byte $CA, $FD, $F8
@@ -2878,6 +2890,7 @@ bloody_malth_pic_5D:
         .byte $EA, $01, $F8
         .byte $F2, $09, $D8
         .byte $F0, $09, $E8
+; Unused. His shield is up in front. No action lists this.
 enemy_pic_5E:
         .byte $0B
         .byte $D4, $F9, $C8
@@ -3023,6 +3036,7 @@ bomberhead_pic_6C:
         .byte $98, $00, $00
         .byte $92, $F8, $0F
         .byte $90, $00, $0F
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pic_6D:
         .byte $15
         .byte $F0, $E9, $E8
@@ -3046,6 +3060,7 @@ enemy_pic_6D:
         .byte $AE, $F9, $18
         .byte $B8, $01, $18
         .byte $BA, $09, $18
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pic_6E:
         .byte $18
         .byte $80, $E1, $EF
@@ -3072,6 +3087,7 @@ enemy_pic_6E:
         .byte $AE, $F9, $18
         .byte $B8, $01, $18
         .byte $BA, $09, $18
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pic_6F:
         .byte $1A
         .byte $80, $E1, $DF
@@ -3129,10 +3145,12 @@ jaquio_pic_70:
         .byte $E8, $F1, $18
         .byte $EA, $F9, $18
         .byte $EC, $01, $18
+; Unused. The fireball, with the halves swapped. Nothing starts this.
 enemy_pic_71:
         .byte $02
         .byte $BC, $F9, $F8
         .byte $BE, $01, $F8
+; Unused. The fireball, with the halves swapped. Nothing starts this.
 enemy_pic_72:
         .byte $02
         .byte $B4, $F9, $F8
@@ -3147,10 +3165,12 @@ jaquio_pic_74:
         .byte $02
         .byte $B6, $F9, $F8
         .byte $B4, $01, $F8
+; Unused. Two of the same tile. No action lists this.
 enemy_pic_75:
         .byte $02
         .byte $A6, $F9, $F8
         .byte $A6, $01, $F8
+; Unused. Two of the same tile. No action lists this.
 enemy_pic_76:
         .byte $02
         .byte $A6, $F9, $F8
@@ -3293,6 +3313,7 @@ ryu_walk_pal_03:
 ; Walk.
 ryu_walk_pal_04:
         .byte $00, $00, $00
+; Unused. One step of his walk.
 ryu_pal_05:
         .byte $00, $00, $00
 ; Sword, and a throw on the ground.
@@ -3390,6 +3411,7 @@ windmill_star_pal_25:
 ; Windmill Throwing Star.
 windmill_star_pal_26:
         .byte $81, $41
+; Unused. A throwing star. Nothing selects it.
 ryu_pal_29:
         .byte $01
 ; Art of the Fire Wheel.
@@ -3642,6 +3664,7 @@ running_ninja_pal_34:
 ; The running ninja.
 running_ninja_pal_35:
         .byte $03, $03, $03, $03
+; Unused. He crouches. Nothing starts this.
 enemy_pal_36:
         .byte $03, $03, $03, $03
 ; The stone man.
@@ -3686,10 +3709,10 @@ barbarian_pal_46:
 ; The Barbarian.
 barbarian_pal_47:
         .byte $03, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
-; The Barbarian.
+; Sword fully out.
 barbarian_pal_48:
         .byte $02, $02, $02, $02, $02, $02, $02, $02, $03, $03, $02, $02, $02
-; The Barbarian.
+; Holds the sword out.
 barbarian_pal_49:
         .byte $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $83
 ; Bomberhead.
@@ -3728,11 +3751,13 @@ basaquer_pal_54:
 ; Kelbeross.
 kelbeross_pal_55:
         .byte $02, $02, $02, $02, $02, $02, $02, $02
+; Unused. His mouth is open. Nothing starts this.
 enemy_pal_56:
         .byte $02, $02, $02, $02, $02, $02, $02, $02
 ; Kelbeross.
 kelbeross_pal_57:
         .byte $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
+; Unused. A small flame. Nothing starts this.
 enemy_pal_58:
         .byte $03
 ; Kelbeross.
@@ -3750,6 +3775,7 @@ bloody_malth_pal_5C:
 ; Bloody Malth.
 bloody_malth_pal_5D:
         .byte $02, $02, $02, $02, $02, $03, $03, $03, $03, $02, $02
+; Unused. His shield is up in front. No action lists this.
 enemy_pal_5E:
         .byte $02, $02, $02, $02, $02, $03, $03, $03, $03, $02, $02
 ; Bloody Malth.
@@ -3794,17 +3820,22 @@ masked_devil_pal_6B:
 ; Bomberhead.
 bomberhead_pal_6C:
         .byte $C3, $C3, $C3, $C3
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pal_6D:
         .byte $02, $02, $02, $02, $02, $02, $02, $03, $03, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pal_6E:
         .byte $03, $02, $02, $02, $02, $02, $02, $03, $02, $02, $03, $03, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
+; Unused. Another pose of Jaquio. Nothing starts this.
 enemy_pal_6F:
         .byte $03, $02, $02, $02, $02, $02, $02, $03, $02, $02, $03, $03, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
 ; Jaquio.
 jaquio_pal_70:
         .byte $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $03, $03, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02, $02
+; Unused. The fireball, with the halves swapped. Nothing starts this.
 enemy_pal_71:
         .byte $01, $01
+; Unused. The fireball, with the halves swapped. Nothing starts this.
 enemy_pal_72:
         .byte $01, $01
 ; Jaquio.
@@ -3813,8 +3844,10 @@ jaquio_pal_73:
 ; Jaquio.
 jaquio_pal_74:
         .byte $41, $41
+; Unused. Two of the same tile. No action lists this.
 enemy_pal_75:
         .byte $03, $C3
+; Unused. Two of the same tile. No action lists this.
 enemy_pal_76:
         .byte $83, $43
 ; The Masked Devil.

@@ -33,6 +33,7 @@ picture_at_hi  = $E5   ; the high byte of that place
 status_i       = $3E   ; which status field is redrawn this frame
 timer          = $63
 frames         = $62   ; counts down to the next second
+nmi_count      = $BF   ; counts up every frame
 ninpo          = $64
 health         = $65
 score          = $60
@@ -234,18 +235,20 @@ pick_area:
         jsr wait_nmi
         lda pad_cur
         cmp #$D8                        ; Up, Start, A, and B
-        bne lC110
+        bne pick_stage
         lda #$00
         sta $01
         lda #$04
         jsr show_screen
-lC104:
+; --- $C104  Keep playing that sound until the number is 0.
+test_sound:
         lda $01
         jsr edit_number
         sta $01
         sta sound                       ; play that sound
-        bne lC104
-lC110:
+        bne test_sound
+; --- $C110  Those buttons were not held. Pick the stage.
+pick_stage:
         lda #$03
         jsr show_screen
         jsr pick_number
@@ -261,12 +264,14 @@ pick_number:
         lda #$00
 edit_number:
         sta $00
-lC128:
+; --- $C128  Draw the number, and see which buttons are held.
+redraw_number:
         ldx #$05
-lC12A:
+; --- $C12A  A few frames between reads.
+number_wait:
         jsr wait_nmi
         dex
-        bne lC12A
+        bne number_wait
         lda #$02
         sta $0700
         lda #$92
@@ -295,22 +300,25 @@ lC12A:
         lda pad_cur
         and #$93
         cmp #$81                        ; A and Right
-        beq lC17B
+        beq digit_inc
         cmp #$82                        ; A and Left
-        beq lC180
+        beq digit_dec
         cmp #$10                        ; Start
-        bne lC128
-lC174:
+        bne redraw_number
+; --- $C174  Start was pressed. Wait until the buttons are up.
+release_pad:
         lda pad_cur
-        bne lC174
+        bne release_pad
         lda $00
         rts
-lC17B:
+; --- $C17B  Add one.
+digit_inc:
         inc $00                         ; add one
-        jmp lC128
-lC180:
+        jmp redraw_number
+; --- $C180  Subtract one.
+digit_dec:
         dec $00                         ; subtract one
-        jmp lC128
+        jmp redraw_number
 
 ; --- $C185  tiles for the digits 0-9 and A-F
 digit_tiles:
@@ -366,13 +374,14 @@ actor_kind:
 
 ; --- $C1ED  Closes in and punches.
 boxer:
-        .word lC1F9
-        .word lC21D
-        .word lC241
-        .word lC26A
-        .word lC27C
-        .word lC2A3
-lC1F9:
+        .word boxer_walk
+        .word boxer_close
+        .word boxer_wait
+        .word boxer_rise
+        .word boxer_punch
+        .word boxer_land
+; --- $C1F9  Start walking toward Ryu.
+boxer_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -388,7 +397,8 @@ lC1F9:
         lda #$01
         sta enemy_state,x
         rts
-lC21D:
+; --- $C21D  Keep closing in. If he has gone past Ryu, wait.
+boxer_close:
         jsr toward_ryu
         bpl lC22D
         lda #$3C
@@ -402,12 +412,13 @@ lC22D:
         beq lC240
         lda #$20
         jsr ryu_away
-        bcc lC259
+        bcc boxer_jump
         lda #$FF
         jsr enemy_jump
 lC240:
         rts
-lC241:
+; --- $C241  The wait. Then walk toward Ryu again.
+boxer_wait:
         lda enemy_timer,x
         bne lC258
         lda enemy_touch,x
@@ -419,7 +430,8 @@ lC241:
         sta enemy_state,x
 lC258:
         rts
-lC259:
+; --- $C259  Ryu is close. Jump at him.
+boxer_jump:
         jsr chase_ryu
         jsr face_ryu
         lda #$FF
@@ -427,7 +439,8 @@ lC259:
         lda #$03
         sta enemy_state,x
         rts
-lC26A:
+; --- $C26A  In the air. On landing, jump into the punch.
+boxer_rise:
         lda enemy_touch,x
         and #$30
         beq lC27B
@@ -437,7 +450,8 @@ lC26A:
         sta enemy_state,x
 lC27B:
         rts
-lC27C:
+; --- $C27C  On landing, leap at Ryu and punch.
+boxer_punch:
         lda enemy_touch,x
         and #$30
         beq lC2A2
@@ -455,7 +469,8 @@ lC27C:
         sta enemy_state,x
 lC2A2:
         rts
-lC2A3:
+; --- $C2A3  Land, and start the walk over.
+boxer_land:
         lda enemy_touch,x
         and #$30
         beq lC2AF
@@ -466,10 +481,11 @@ lC2AF:
 
 ; --- $C2B0  Walks, then fires three shots.
 machine_gunner:
-        .word lC2B6
-        .word lC2DC
-        .word lC307
-lC2B6:
+        .word gunner_walk
+        .word gunner_pace
+        .word gunner_fire
+; --- $C2B6  Walk toward Ryu.
+gunner_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -486,7 +502,8 @@ lC2B6:
         lda #$01
         sta enemy_state,x
         rts
-lC2DC:
+; --- $C2DC  Keep walking until the wait is over, then aim.
+gunner_pace:
         jsr face_ryu
         jsr floor_ahead
         bne lC2E7
@@ -507,7 +524,8 @@ lC2E7:
         sta enemy_state,x
 lC306:
         rts
-lC307:
+; --- $C307  Fire three shots.
+gunner_fire:
         jsr face_ryu
         jsr floor_ahead
         bne lC312
@@ -518,7 +536,7 @@ lC312:
         stx $00
         jsr alloc_enemy
         bmi lC339
-        jsr lCAA5
+        jsr gun_shot
         ldx $00
         dec $04A0,x
         bmi lC333
@@ -538,11 +556,12 @@ lC339:
 
 ; --- $C33C  Walks and throws an axe.
 thrower:
-        .word lC344
-        .word lC368
-        .word lC37E
-        .word lC3AE
-lC344:
+        .word thrower_walk
+        .word thrower_pace
+        .word thrower_toss
+        .word thrower_hold
+; --- $C344  Walk, until it is time to throw.
+thrower_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -553,13 +572,14 @@ lC344:
         sta enemy_x_frac,x
         lda #$16
         jsr set_enemy_action
-        lda $BF
+        lda nmi_count
         lsr
         sta enemy_timer,x
         lda #$01
         sta enemy_state,x
         rts
-lC368:
+; --- $C368  Keep walking. Turn back at a drop.
+thrower_pace:
         jsr face_ryu
         jsr floor_ahead
         bne lC373
@@ -571,7 +591,8 @@ lC373:
         sta enemy_state,x
 lC37D:
         rts
-lC37E:
+; --- $C37E  Throw the axe.
+thrower_toss:
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -583,7 +604,7 @@ lC38F:
         stx $00
         jsr alloc_enemy
         bmi lC3AB
-        jsr lCAE9
+        jsr throw_axe
         ldx $00
         lda #$18
         jsr set_enemy_action
@@ -595,7 +616,8 @@ lC38F:
 lC3AB:
         ldx $00
         rts
-lC3AE:
+; --- $C3AE  Hold the throw, then start over.
+thrower_hold:
         lda enemy_timer,x
         bne lC3B8
         lda #$00
@@ -605,9 +627,10 @@ lC3B8:
 
 ; --- $C3B9  Chases Ryu and swings a bat.
 batter:
-        .word lC3BD
-        .word lC3E1
-lC3BD:
+        .word batter_chase
+        .word batter_turn
+; --- $C3BD  Chase Ryu.
+batter_chase:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -623,7 +646,8 @@ lC3BD:
         lda #$01
         sta enemy_state,x
         rts
-lC3E1:
+; --- $C3E1  Turn around at a wall or a drop.
+batter_turn:
         jsr floor_ahead
         beq lC3EC
         jsr wall_ahead
@@ -638,13 +662,14 @@ lC3EC:
 
 ; --- $C3F6  Walks, then throws two knives.
 knife_thrower:
-        .word lC402
-        .word lC41B
-        .word lC431
-        .word lC466
-        .word lC487
-        .word lC4BE
-lC402:
+        .word knife_arm
+        .word knife_walk
+        .word knife_high
+        .word knife_again
+        .word knife_low
+        .word knife_reset
+; --- $C402  Get ready to walk.
+knife_arm:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -656,7 +681,8 @@ lC402:
         lda #$01
         sta enemy_state,x
         rts
-lC41B:
+; --- $C41B  Walk toward Ryu for a while.
+knife_walk:
         jsr chase_ryu
         jsr face_ryu
         lda #$1C
@@ -666,7 +692,8 @@ lC41B:
         lda #$02
         sta enemy_state,x
         rts
-lC431:
+; --- $C431  Throw a knife, high.
+knife_high:
         lda enemy_timer,x
         bne lC462
         stx $00
@@ -679,7 +706,7 @@ lC431:
         sec
         lda enemy_y,y
         sbc #$0E
-        jsr lCB37
+        jsr throw_knife
         ldx $00
         jsr face_ryu
         lda #$1D
@@ -693,7 +720,8 @@ lC462:
 lC463:
         ldx $00
         rts
-lC466:
+; --- $C466  Walk toward Ryu again.
+knife_again:
         lda enemy_timer,x
         bne lC486
         lda enemy_flags
@@ -709,7 +737,8 @@ lC466:
         sta enemy_state,x
 lC486:
         rts
-lC487:
+; --- $C487  Throw a second knife, lower.
+knife_low:
         lda enemy_timer,x
         bne lC4BA
         stx $00
@@ -723,7 +752,7 @@ lC487:
         sec
         lda enemy_y,y
         sbc #$04
-        jsr lCB37
+        jsr throw_knife
         ldx $00
         jsr face_ryu
         lda #$1E
@@ -737,7 +766,8 @@ lC4BA:
 lC4BB:
         ldx $00
         rts
-lC4BE:
+; --- $C4BE  Then walk toward him again.
+knife_reset:
         lda enemy_timer,x
         bne lC4CE
         lda enemy_flags
@@ -750,10 +780,11 @@ lC4CE:
 
 ; --- $C4CF  Crouches and fires.
 crouching_soldier:
-        .word lC4D5
-        .word lC4F1
-        .word lC51D
-lC4D5:
+        .word crouch_aim
+        .word crouch_fire
+        .word crouch_cycle
+; --- $C4D5  Crouch and aim at Ryu.
+crouch_aim:
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -766,14 +797,15 @@ lC4D5:
         lda #$01
         sta enemy_state,x
         rts
-lC4F1:
+; --- $C4F1  Fire.
+crouch_fire:
         jsr face_ryu
         lda enemy_timer,x
         bne lC519
         stx $00
         jsr alloc_enemy
         bmi lC51A
-        jsr lCB73
+        jsr crouch_shot
         lda #$21
         sta sound
         ldx $00
@@ -788,7 +820,8 @@ lC519:
 lC51A:
         ldx $00
         rts
-lC51D:
+; --- $C51D  Then aim again.
+crouch_cycle:
         lda enemy_timer,x
         bne lC531
         lda #$1F
@@ -800,14 +833,15 @@ lC51D:
 lC531:
         rts
 
-; --- $C532  Jumps in and kicks.
+; --- $C532  Closes in, then spins a kick in the air.
 jump_kicker:
-        .word lC53C
-        .word lC55A
-        .word lC577
-        .word lC58E
-        .word lC5AE
-lC53C:
+        .word kicker_walk
+        .word kicker_near
+        .word kicker_pause
+        .word kicker_kick
+        .word kicker_land
+; --- $C53C  Walk toward Ryu.
+kicker_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -821,7 +855,8 @@ lC53C:
         lda #$01
         sta enemy_state,x
         rts
-lC55A:
+; --- $C55A  When Ryu is close, jump in.
+kicker_near:
         jsr chase_ryu
         jsr face_ryu
         lda #$38
@@ -835,7 +870,8 @@ lC55A:
         sta enemy_state,x
 lC576:
         rts
-lC577:
+; --- $C577  Land, and pause.
+kicker_pause:
         lda enemy_touch,x
         and #$30
         beq lC58D
@@ -847,7 +883,8 @@ lC577:
         sta enemy_state,x
 lC58D:
         rts
-lC58E:
+; --- $C58E  Jump, and spin the kick. Four pictures, one frame each, until he lands.
+kicker_kick:
         lda enemy_timer,x
         bne lC5AD
         jsr chase_ryu
@@ -862,7 +899,8 @@ lC58E:
         sta enemy_state,x
 lC5AD:
         rts
-lC5AE:
+; --- $C5AE  Land, and start over.
+kicker_land:
         lda enemy_touch,x
         and #$30
         beq lC5BA
@@ -873,10 +911,11 @@ lC5BA:
 
 ; --- $C5BB  Runs and hops.
 running_soldier:
-        .word lC5C1
-        .word lC5E5
-        .word lC5FF
-lC5C1:
+        .word runner_go
+        .word runner_hop
+        .word runner_land
+; --- $C5C1  Run toward Ryu.
+runner_go:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -892,7 +931,8 @@ lC5C1:
         lda #$01
         sta enemy_state,x
         rts
-lC5E5:
+; --- $C5E5  Hop over a gap or a wall.
+runner_hop:
         jsr floor_ahead
         beq lC5EF
         jsr wall_ahead
@@ -906,7 +946,8 @@ lC5EF:
         sta enemy_state,x
 lC5FE:
         rts
-lC5FF:
+; --- $C5FF  Land, and run again.
+runner_land:
         lda enemy_touch,x
         and #$30
         beq lC610
@@ -919,9 +960,10 @@ lC610:
 
 ; --- $C611  Flies in a wave.
 bat:
-        .word lC615
-        .word lC64E
-lC615:
+        .word bat_swoop
+        .word bat_bob
+; --- $C615  Fly in, around Ryu's height.
+bat_swoop:
         lda enemy_flags
         ora #$C0
         sta enemy_flags
@@ -946,7 +988,8 @@ lC615:
         lda #$01
         sta enemy_state,x
         rts
-lC64E:
+; --- $C64E  Rise and fall around that height.
+bat_bob:
         sec
         lda $04A0,x
         sbc enemy_y,x
@@ -971,9 +1014,10 @@ lC669:
 
 ; --- $C67B  Runs and leaps at Ryu.
 attacking_dog:
-        .word lC67F
-        .word lC6B3
-lC67F:
+        .word hound_run
+        .word hound_leap
+; --- $C67F  Run at Ryu.
+hound_run:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -997,7 +1041,8 @@ lC6A7:
         lda #$01
         sta enemy_state,x
         rts
-lC6B3:
+; --- $C6B3  Turn at a wall, and leap along the ground.
+hound_leap:
         jsr wall_ahead
         beq lC6C1
         jsr reverse_enemy
@@ -1015,10 +1060,11 @@ lC6CD:
 
 ; --- $C6CE  Sits until Ryu is close, then runs and leaps.
 waiting_dog:
-        .word lC6D4
-        .word lC6F5
-        .word lC71A
-lC6D4:
+        .word dog_sit
+        .word dog_wake
+        .word dog_leap
+; --- $C6D4  Sit, facing Ryu.
+dog_sit:
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -1035,7 +1081,8 @@ lC6EC:
         lda #$01
         sta enemy_state,x
         rts
-lC6F5:
+; --- $C6F5  When Ryu is close, run.
+dog_wake:
         lda #$40
         jsr ryu_away
         bcs lC719
@@ -1053,7 +1100,8 @@ lC6F5:
         sta enemy_state,x
 lC719:
         rts
-lC71A:
+; --- $C71A  Turn at a wall, and leap.
+dog_leap:
         jsr wall_ahead
         beq lC728
         jsr reverse_enemy
@@ -1071,9 +1119,10 @@ lC734:
 
 ; --- $C735  Flies toward Ryu.
 bird:
-        .word lC739
-        .word lC75D
-lC739:
+        .word bird_rise
+        .word bird_home
+; --- $C739  Fly toward Ryu.
+bird_rise:
         lda enemy_flags
         ora #$C0
         sta enemy_flags
@@ -1089,16 +1138,18 @@ lC739:
         lda #$01
         sta enemy_state,x
         rts
-lC75D:
+; --- $C75D  Match his height, then steer sideways.
+bird_home:
         sec
         lda height
         sbc enemy_y,x
         bcc lC76A
         inc enemy_y,x
-        bne lC76D
+        bne home_x
 lC76A:
         dec enemy_y,x
-lC76D:
+; --- $C76D  Steer sideways toward Ryu.
+home_x:
         sec
         lda enemy_x,x
         sbc ryu_x
@@ -1129,10 +1180,11 @@ lC78D:
 
 ; --- $C7A5  Hovers, and throws a shuriken when Ryu is near.
 jetpack_ninja:
-        .word lC7AB
-        .word lC7D7
-        .word lC80E
-lC7AB:
+        .word jet_hover
+        .word jet_aim
+        .word jet_thrown
+; --- $C7AB  Hover, facing Ryu.
+jet_hover:
         lda enemy_flags
         ora #$C0
         sta enemy_flags
@@ -1152,7 +1204,8 @@ lC7AB:
         lda #$01
         sta enemy_state,x
         rts
-lC7D7:
+; --- $C7D7  When Ryu is near, throw a shuriken.
+jet_aim:
         lda #$30
         jsr enemy_thrust
         sec
@@ -1169,7 +1222,7 @@ lC7E9:
         jsr alloc_enemy
         bmi lC80B
         ldy $00
-        jsr lCBC2
+        jsr ninja_star
         ldx $00
         lda #$2F
         jsr set_enemy_action
@@ -1182,7 +1235,8 @@ lC80B:
         ldx $00
 lC80D:
         rts
-lC80E:
+; --- $C80E  Hold the throw, then hover again.
+jet_thrown:
         lda enemy_timer,x
         bne lC81D
         lda #$2E
@@ -1194,12 +1248,13 @@ lC81D:
 
 ; --- $C81E  Runs, and jumps when Ryu is close.
 running_ninja:
-        .word lC828
-        .word lC849
-        .word lC86B
-        .word lC88C
-        .word lC8A3
-lC828:
+        .word ninja_stand
+        .word ninja_run
+        .word ninja_jump
+        .word ninja_land
+        .word ninja_resume
+; --- $C828  Stand until he is on the ground.
+ninja_stand:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -1214,7 +1269,8 @@ lC828:
         lda #$01
         sta enemy_state,x
         rts
-lC849:
+; --- $C849  Then run toward Ryu.
+ninja_run:
         lda enemy_touch,x
         and #$30
         beq lC86A
@@ -1230,7 +1286,8 @@ lC849:
         sta enemy_state,x
 lC86A:
         rts
-lC86B:
+; --- $C86B  Jump at a wall, a gap, or when Ryu is close.
+ninja_jump:
         jsr wall_ahead
         bne lC87C
         jsr floor_ahead
@@ -1247,7 +1304,8 @@ lC87C:
         jsr enemy_jump
 lC88B:
         rts
-lC88C:
+; --- $C88C  Land, and pause.
+ninja_land:
         lda enemy_touch,x
         and #$30
         beq lC8A2
@@ -1259,7 +1317,8 @@ lC88C:
         sta enemy_state,x
 lC8A2:
         rts
-lC8A3:
+; --- $C8A3  Then run again.
+ninja_resume:
         lda enemy_timer,x
         bne lC8B3
         jsr chase_ryu
@@ -1271,12 +1330,13 @@ lC8B3:
 
 ; --- $C8B4  Paces, then throws a ring.
 stone_man:
-        .word lC8BE
-        .word lC8EA
-        .word lC93B
-        .word lC963
-        .word lC9A9
-lC8BE:
+        .word stone_start
+        .word stone_pace
+        .word stone_throw
+        .word stone_follow
+        .word stone_rest
+; --- $C8BE  Pace, walking back from Ryu at first.
+stone_start:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -1295,7 +1355,8 @@ lC8BE:
         lda #$01
         sta enemy_state,x
         rts
-lC8EA:
+; --- $C8EA  Walk between the two marks, then wind up.
+stone_pace:
         lda enemy_timer,x
         beq lC925
         jsr chase_ryu
@@ -1337,7 +1398,8 @@ lC925:
         lda #$02
         sta enemy_state,x
         rts
-lC93B:
+; --- $C93B  Throw the ring.
+stone_throw:
         lda enemy_timer,x
         bne lC95F
         stx $00
@@ -1345,7 +1407,7 @@ lC93B:
         bmi lC960
         lda #$1A
         sta sound
-        jsr lCC0B
+        jsr throw_ring
         txa
         ldx $00
         sta $04A0,x
@@ -1358,7 +1420,8 @@ lC95F:
 lC960:
         ldx $00
         rts
-lC963:
+; --- $C963  Walk between the marks again.
+stone_follow:
         lda enemy_timer,x
         beq lC99E
         jsr chase_ryu
@@ -1396,7 +1459,8 @@ lC99E:
         lda #$04
         sta enemy_state,x
         rts
-lC9A9:
+; --- $C9A9  Wait, then pace again.
+stone_rest:
         lda enemy_timer,x
         bne lC9B3
         lda #$01
@@ -1406,10 +1470,11 @@ lC9B3:
 
 ; --- $C9B4  Hops toward Ryu.
 crouched_ghoul:
-        .word lC9BA
-        .word lC9EA
-        .word lCA13
-lC9BA:
+        .word ghoul_hop
+        .word ghoul_bounce
+        .word ghoul_land
+; --- $C9BA  Hop toward Ryu.
+ghoul_hop:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -1432,7 +1497,8 @@ lC9D9:
         lda #$01
         sta enemy_state,x
         rts
-lC9EA:
+; --- $C9EA  A small hop while he is far, a long one when he is close.
+ghoul_bounce:
         lda enemy_touch,x
         and #$30
         beq lCA02
@@ -1453,7 +1519,8 @@ lCA03:
         lda #$02
         sta enemy_state,x
         rts
-lCA13:
+; --- $CA13  Land, and hop again.
+ghoul_land:
         lda enemy_touch,x
         and #$30
         beq lCA25
@@ -1466,11 +1533,12 @@ lCA25:
 
 ; --- $CA26  Waits, then hops toward Ryu.
 waiting_ghoul:
-        .word lCA2E
-        .word lCA52
-        .word lCA65
-        .word lCA8E
-lCA2E:
+        .word lurker_wait
+        .word lurker_wake
+        .word lurker_bounce
+        .word lurker_land
+; --- $CA2E  Wait, facing Ryu.
+lurker_wait:
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -1486,7 +1554,8 @@ lCA2E:
         lda #$01
         sta enemy_state,x
         rts
-lCA52:
+; --- $CA52  When he is close, start hopping.
+lurker_wake:
         lda #$28
         jsr ryu_away
         bcs lCA64
@@ -1497,7 +1566,8 @@ lCA52:
         sta enemy_state,x
 lCA64:
         rts
-lCA65:
+; --- $CA65  A small hop while he is far, a long one when he is close.
+lurker_bounce:
         lda enemy_touch,x
         and #$30
         beq lCA7D
@@ -1518,7 +1588,8 @@ lCA7E:
         lda #$03
         sta enemy_state,x
         rts
-lCA8E:
+; --- $CA8E  Land, and hop again.
+lurker_land:
         lda enemy_touch,x
         and #$30
         beq lCAA0
@@ -1531,9 +1602,10 @@ lCAA0:
 
 ; --- $CAA1  The machine gunner's shot. Flies straight.
 machine_gun_bullet:
-        .word lCAA5
-        .word lD5B2
-lCAA5:
+        .word gun_shot
+        .word leave_actor
+; --- $CAA5  The machine gunner's shot. Send it at Ryu.
+gun_shot:
         lda #$11
         sta enemy_type,x
         tay
@@ -1563,9 +1635,10 @@ lCAA5:
 
 ; --- $CAE5  The thrower's axe. It arcs.
 axe:
-        .word lCAE9
-        .word lCB30
-lCAE9:
+        .word throw_axe
+        .word axe_fall
+; --- $CAE9  The thrower's axe. Lob it.
+throw_axe:
         lda #$12
         sta enemy_type,x
         tay
@@ -1580,13 +1653,13 @@ lCAE9:
         lda enemy_y,y
         sbc #$18
         sta enemy_y,x
-        lda $BF
+        lda nmi_count
         sta enemy_x_frac,x
         and #$01
         sta enemy_x_spd,x
         jsr chase_ryu
         jsr face_spawn
-        lda $BF
+        lda nmi_count
         sta enemy_y_frac,x
         lda #$FC
         sta enemy_y_spd,x
@@ -1595,14 +1668,16 @@ lCAE9:
         lda #$01
         sta enemy_state,x
         rts
-lCB30:
+; --- $CB30  The axe falls.
+axe_fall:
         jmp enemy_gravity
 
 ; --- $CB33  A thrown knife. Flies straight.
 knife:
-        .word lCB37
-        .word lD5B2
-lCB37:
+        .word throw_knife
+        .word leave_actor
+; --- $CB37  A thrown knife. Send it at Ryu.
+throw_knife:
         sta enemy_y,x
         lda enemy_x,y
         sta enemy_x,x
@@ -1628,9 +1703,10 @@ lCB37:
 
 ; --- $CB6F  The crouching soldier's shot.
 crouching_soldier_bullet:
-        .word lCB73
-        .word lD5B2
-lCB73:
+        .word crouch_shot
+        .word leave_actor
+; --- $CB73  The crouching soldier's shot. Send it at Ryu.
+crouch_shot:
         lda #$14
         sta enemy_type,x
         tay
@@ -1666,9 +1742,10 @@ lCB8A:
 
 ; --- $CBBE  The jetpack ninja's shuriken.
 shuriken:
-        .word lCBC2
-        .word lD5B2
-lCBC2:
+        .word ninja_star
+        .word leave_actor
+; --- $CBC2  The jetpack ninja's shuriken. Send it at Ryu.
+ninja_star:
         lda #$15
         sta enemy_type,x
         tay
@@ -1700,8 +1777,9 @@ lCBC2:
 
 ; --- $CC09  The stone man's ring. It comes back to him.
 stone_man_ring:
-        .word lCC4E
-lCC0B:
+        .word ring_back
+; --- $CC0B  The stone man's ring. Send it out.
+throw_ring:
         lda #$16
         sta enemy_type,x
         tay
@@ -1730,7 +1808,8 @@ lCC0B:
         lda #$00
         sta enemy_state,x
         rts
-lCC4E:
+; --- $CC4E  The ring comes back. It vanishes when it reaches him.
+ring_back:
         lda enemy_timer,x
         bne lCC82
         ldy $04A0,x
@@ -1768,17 +1847,18 @@ lCC83:
         sta enemy_x_spd,x
         rts
 
-; --- $CC95  Walks in and attacks.
+; --- $CC95  Walks in and swings his sword.
 barbarian:
-        .word lCCA5
-        .word lCCC5
-        .word lCCE1
-        .word lCCEC
-        .word lCD02
-        .word lCD0D
-        .word lCD1E
-        .word lCD2E
-lCCA5:
+        .word barbarian_setup
+        .word barbarian_walk
+        .word barbarian_stride
+        .word barbarian_stop
+        .word barbarian_hold
+        .word barbarian_turn
+        .word barbarian_face
+        .word barbarian_pause
+; --- $CCA5  Set him up.
+barbarian_setup:
         lda #$80
         sta $77
         lda enemy_flags
@@ -1793,7 +1873,8 @@ lCCA5:
         lda #$01
         sta enemy_state,x
         rts
-lCCC5:
+; --- $CCC5  Walk toward Ryu.
+barbarian_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -1806,14 +1887,16 @@ lCCC5:
         lda #$02
         sta enemy_state,x
         rts
-lCCE1:
+; --- $CCE1  Keep walking until the timer runs out.
+barbarian_stride:
         lda enemy_timer,x
         bne lCCEB
         lda #$03
         sta enemy_state,x
 lCCEB:
         rts
-lCCEC:
+; --- $CCEC  Stop walking and swing the sword.
+barbarian_stop:
         lda enemy_flags
         and #$BF
         sta enemy_flags
@@ -1824,14 +1907,16 @@ lCCEC:
         lda #$04
         sta enemy_state,x
         rts
-lCD02:
+; --- $CD02  Hold that pose.
+barbarian_hold:
         lda enemy_timer,x
         bne lCD0C
         lda #$05
         sta enemy_state,x
 lCD0C:
         rts
-lCD0D:
+; --- $CD0D  Turn around if a wall is ahead.
+barbarian_turn:
         jsr wall_ahead
         beq lCD18
         jsr chase_ryu
@@ -1840,7 +1925,8 @@ lCD18:
         lda #$06
         sta enemy_state,x
         rts
-lCD1E:
+; --- $CD1E  If he faces Ryu, walk again. Otherwise wait.
+barbarian_face:
         jsr facing_ryu
         bpl lCD33
         lda #$3C
@@ -1848,7 +1934,8 @@ lCD1E:
         lda #$07
         sta enemy_state,x
         rts
-lCD2E:
+; --- $CD2E  Wait, then walk again.
+barbarian_pause:
         lda enemy_timer,x
         bne lCD38
 lCD33:
@@ -1859,11 +1946,12 @@ lCD38:
 
 ; --- $CD39  Swings a spinning sickle on a chain.
 bomberhead:
-        .word lCD41
-        .word lCD87
-        .word lCDA4
-        .word lCDC5
-lCD41:
+        .word bomber_setup
+        .word bomber_close
+        .word bomber_swing
+        .word bomber_chase
+; --- $CD41  Take his place and start the sickle.
+bomber_setup:
         lda #$80
         sta $77
         lda enemy_flags
@@ -1888,12 +1976,13 @@ lCD41:
         jsr chase_ryu
         jsr face_ryu
         stx $00
-        jsr lCDD6
+        jsr spawn_sickle
         ldx $00
         lda #$01
         sta enemy_state,x
         rts
-lCD87:
+; --- $CD87  When Ryu is close, stop and change his pose.
+bomber_close:
         lda #$20
         jsr ryu_away
         bcs lCDA3
@@ -1908,7 +1997,8 @@ lCD87:
         sta enemy_state,x
 lCDA3:
         rts
-lCDA4:
+; --- $CDA4  Hold that pose, then walk again.
+bomber_swing:
         lda enemy_timer,x
         bne lCDC4
         lda enemy_flags
@@ -1924,7 +2014,8 @@ lCDA4:
         sta enemy_state,x
 lCDC4:
         rts
-lCDC5:
+; --- $CDC5  Walk until the timer runs out.
+bomber_chase:
         jsr chase_ryu
         jsr face_ryu
         lda enemy_timer,x
@@ -1933,7 +2024,8 @@ lCDC5:
         sta enemy_state,x
 lCDD5:
         rts
-lCDD6:
+; --- $CDD6  Give him the sickle.
+spawn_sickle:
         jsr alloc_enemy
         bmi lCDFB
         lda #$2A
@@ -1954,14 +2046,15 @@ lCDFB:
 
 ; --- $CDFC  The sickle, swinging on its chain.
 bomberhead_sickle:
-        .word lCDFE
-lCDFE:
+        .word sickle_place
+; --- $CDFE  Follow him. His pose picks how far out it sits.
+sickle_place:
         ldy $04A0,x
         lda enemy_pose,y
         cmp #$4C
-        beq lCE29
+        beq sickle_out
         cmp #$4D
-        beq lCE4E
+        beq sickle_low
         lda slot_facing,y
         and #$40
         bne lCE1E
@@ -1976,7 +2069,8 @@ lCE1E:
         adc #$04
         sta enemy_x,x
         bne lCE44
-lCE29:
+; --- $CE29  Sixteen pixels out.
+sickle_out:
         lda slot_facing,y
         and #$40
         bne lCE3B
@@ -1996,7 +2090,8 @@ lCE44:
         sbc #$25
         sta enemy_y,x
         rts
-lCE4E:
+; --- $CE4E  Further out, and lower.
+sickle_low:
         lda slot_facing,y
         and #$40
         bne lCE60
@@ -2017,15 +2112,16 @@ lCE69:
         sta enemy_y,x
         rts
 
-; --- $CE73  Jumps in and fires three shots.
+; --- $CE73  Hops in an arc from side to side, and sometimes fires three shots.
 basaquer:
-        .word lCE7F
-        .word lCEA8
-        .word lCEC1
-        .word lCEE3
-        .word lCF01
+        .word basaquer_enter
+        .word basaquer_jump
+        .word basaquer_land
+        .word basaquer_turn
+        .word basaquer_fire
         .word lCF14
-lCE7F:
+; --- $CE7F  Drop in from the right.
+basaquer_enter:
         lda #$80
         sta $77
         lda enemy_flags
@@ -2043,7 +2139,8 @@ lCE7F:
         sta enemy_x_spd,x
         lda #$00
         sta enemy_x_frac,x
-lCEA8:
+; --- $CEA8  Hop. His sideways speed stays, so the jump arcs.
+basaquer_jump:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -2055,7 +2152,8 @@ lCEA8:
         lda #$02
         sta enemy_state,x
         rts
-lCEC1:
+; --- $CEC1  Land, and hold still.
+basaquer_land:
         lda enemy_touch,x
         and #$30
         beq lCEE2
@@ -2072,7 +2170,8 @@ lCEC1:
         sta enemy_state,x
 lCEE2:
         rts
-lCEE3:
+; --- $CEE3  Reverse. When he is the only one left, fire on half the frames.
+basaquer_turn:
         lda enemy_timer,x
         bne lCF00
         jsr reverse_enemy
@@ -2082,18 +2181,19 @@ lCEE3:
         lda enemy_count
         cmp #$01
         bne lCEFB
-        bit $BF
-        bmi lCF01
+        bit nmi_count
+        bmi basaquer_fire
 lCEFB:
         lda #$01
         sta enemy_state,x
 lCF00:
         rts
-lCF01:
+; --- $CF01  Fire three shots.
+basaquer_fire:
         stx $00
-        jsr lCF20
-        jsr lCF39
-        jsr lCF52
+        jsr shot_high
+        jsr shot_mid
+        jsr shot_low
         ldx $00
         lda #$01
         sta enemy_state,x
@@ -2106,8 +2206,9 @@ lCF14:
         sta enemy_state,x
 lCF1F:
         rts
-lCF20:
-        jsr lCF69
+; --- $CF20  A shot above him.
+shot_high:
+        jsr spawn_shot
         ldy $00
         sec
         lda enemy_y,y
@@ -2118,8 +2219,9 @@ lCF20:
         lda #$00
         sta enemy_state,x
         rts
-lCF39:
-        jsr lCF69
+; --- $CF39  A shot a little above him.
+shot_mid:
+        jsr spawn_shot
         ldy $00
         sec
         lda enemy_y,y
@@ -2130,8 +2232,9 @@ lCF39:
         lda #$00
         sta enemy_state,x
         rts
-lCF52:
-        jsr lCF69
+; --- $CF52  A shot at his height.
+shot_low:
+        jsr spawn_shot
         ldy $00
         sec
         lda enemy_y,y
@@ -2141,7 +2244,8 @@ lCF52:
         lda #$00
         sta enemy_state,x
         rts
-lCF69:
+; --- $CF69  Make one of his shots.
+spawn_shot:
         jsr alloc_enemy
         bmi lCFA1
         ldy $00
@@ -2169,8 +2273,9 @@ lCFA1:
 
 ; --- $CFA2  One of Basaquer's shots.
 basaquer_shot:
-        .word lCFA4
-lCFA4:
+        .word shot_release
+; --- $CFA4  Wait, then let it fly.
+shot_release:
         lda enemy_timer,x
         bne lCFAF
         lda enemy_flags
@@ -2179,13 +2284,14 @@ lCFA4:
 lCFAF:
         rts
 
-; --- $CFB0  Two heads. They jump and breathe fire.
+; --- $CFB0  Two of the same creature. They jump and breathe fire.
 kelbeross:
-        .word lCFB6
-        .word lD02D
-        .word lD052
-lCFB6:
-        jsr lD015
+        .word kelbeross_enter
+        .word kelbeross_jump
+        .word kelbeross_breathe
+; --- $CFB6  Both of them take their places, facing opposite ways.
+kelbeross_enter:
+        jsr kelbeross_ready
         lda #$80
         sta $77
         lda #$01
@@ -2206,7 +2312,7 @@ lCFB6:
         bmi lD012
         lda #$1B
         sta enemy_type,x
-        jsr lD015
+        jsr kelbeross_ready
         lda #$00
         sta slot_flags,x
         lda #$40
@@ -2225,7 +2331,8 @@ lCFB6:
 lD012:
         ldx $00
         rts
-lD015:
+; --- $D015  A head waits.
+kelbeross_ready:
         jsr load_enemy_hp
         lda #$46
         jsr set_enemy_action
@@ -2236,7 +2343,8 @@ lD015:
         lda #$01
         sta enemy_state,x
         rts
-lD02D:
+; --- $D02D  Jump.
+kelbeross_jump:
         lda enemy_timer,x
         bne lD051
         lda enemy_flags
@@ -2248,20 +2356,21 @@ lD02D:
         sta enemy_y_spd,x
         lda #$00
         sta enemy_y_frac,x
-        lda $BF
+        lda nmi_count
         sta enemy_x_frac,x
         lda #$02
         sta enemy_state,x
 lD051:
         rts
-lD052:
+; --- $D052  Breathe fire, and turn at a wall.
+kelbeross_breathe:
         dec $04A0,x
         bne lD06A
         stx $00
         jsr alloc_enemy
         bmi lD063
         ldy $00
-        jsr lD0A0
+        jsr kelbeross_fire
 lD063:
         ldx $00
         lda #$28
@@ -2293,7 +2402,8 @@ lD07E:
         sta enemy_state,x
 lD09F:
         rts
-lD0A0:
+; --- $D0A0  Breathe one fireball.
+kelbeross_fire:
         lda #$1C
         sta enemy_type,x
         tay
@@ -2329,16 +2439,17 @@ lD0E5:
 
 ; --- $D0EB  Kelbeross's fireball.
 kelbeross_fireball:
-        .word lD5B2
+        .word leave_actor
 
 ; --- $D0ED  Walks, then calls down lightning.
 bloody_malth:
-        .word lD0F7
-        .word lD131
-        .word lD14D
-        .word lD15B
-        .word lD170
-lD0F7:
+        .word malth_enter
+        .word malth_stop
+        .word malth_call
+        .word malth_pose
+        .word malth_again
+; --- $D0F7  Take his place and walk.
+malth_enter:
         lda #$80
         sta $77
         jsr load_enemy_hp
@@ -2353,7 +2464,8 @@ lD0F7:
         lda #$00
         sta enemy_x_sub,x
         sta enemy_y_sub,x
-lD11A:
+; --- $D11A  Walk toward Ryu.
+malth_walk:
         jsr face_ryu
         lda #$41
         sta enemy_flags
@@ -2364,7 +2476,8 @@ lD11A:
         lda #$01
         sta enemy_state,x
         rts
-lD131:
+; --- $D131  Stop and turn.
+malth_stop:
         lda enemy_timer,x
         bne lD14C
         lda enemy_flags
@@ -2378,14 +2491,16 @@ lD131:
         sta enemy_state,x
 lD14C:
         rts
-lD14D:
-        jsr lD179
+; --- $D14D  Call down lightning.
+malth_call:
+        jsr call_lightning
         lda #$32
         sta enemy_timer,x
         lda #$03
         sta enemy_state,x
         rts
-lD15B:
+; --- $D15B  Hold the next pose.
+malth_pose:
         lda enemy_timer,x
         bne lD16F
         lda #$4D
@@ -2396,13 +2511,15 @@ lD15B:
         sta enemy_state,x
 lD16F:
         rts
-lD170:
+; --- $D170  Walk again.
+malth_again:
         lda enemy_timer,x
         bne lD178
-        jmp lD11A
+        jmp malth_walk
 lD178:
         rts
-lD179:
+; --- $D179  The lightning, beside him.
+call_lightning:
         stx $00
         jsr alloc_enemy
         bmi lD1C0
@@ -2440,10 +2557,11 @@ lD1C0:
 
 ; --- $D1C3  The lightning. It falls toward Ryu.
 bloody_malth_lightning:
-        .word lD1C9
-        .word lD1DE
-        .word lD1FE
-lD1C9:
+        .word bolt_wait
+        .word bolt_aim
+        .word bolt_fall
+; --- $D1C9  Wait, then change.
+bolt_wait:
         lda enemy_timer,x
         bne lD1DD
         lda #$4F
@@ -2454,7 +2572,8 @@ lD1C9:
         sta enemy_state,x
 lD1DD:
         rts
-lD1DE:
+; --- $D1DE  Aim at Ryu.
+bolt_aim:
         lda enemy_timer,x
         bne lD1FD
         lda #$03
@@ -2469,7 +2588,8 @@ lD1DE:
         sta enemy_state,x
 lD1FD:
         rts
-lD1FE:
+; --- $D1FE  Fall toward him.
+bolt_fall:
         lda #$80
         jsr enemy_thrust
         sec
@@ -2488,11 +2608,12 @@ lD215:
         sta enemy_y,x
         rts
 
-; --- $D21F  Walks, then calls in fireballs.
+; --- $D21F  A large fighter, a sword out to either side. Walks in from the right.
 masked_devil:
-        .word lD223
-        .word lD256
-lD223:
+        .word devil_walk
+        .word devil_call
+; --- $D223  Walk toward Ryu.
+devil_walk:
         lda enemy_flags
         ora #$40
         sta enemy_flags
@@ -2514,20 +2635,22 @@ lD223:
         lda #$01
         sta enemy_state,x
         rts
-lD256:
+; --- $D256  Keep walking, and call a fireball.
+devil_call:
         jsr chase_ryu
         jsr face_ryu
         lda enemy_timer,x
         bne lD26F
         stx $00
         ldy $00
-        jsr lD270
+        jsr devil_spawn
         ldx $00
         lda #$3C
         sta enemy_timer,x
 lD26F:
         rts
-lD270:
+; --- $D270  A fireball, in the middle of the room. It steers toward him.
+devil_spawn:
         jsr alloc_enemy
         bmi lD2AD
         lda #$1A
@@ -2555,11 +2678,12 @@ lD270:
 lD2AD:
         rts
 
-; --- $D2AE  Fireballs that home in on the Masked Devil.
+; --- $D2AE  Fireballs. They appear in the middle and steer toward the walking one.
 masked_devil_fireballs:
-        .word lD2B2
-        .word lD2EC
-lD2B2:
+        .word ball_steer_x
+        .word ball_steer_y
+; --- $D2B2  Steer sideways toward the one who fired it.
+ball_steer_x:
         ldy $04A0,x
         sec
         lda enemy_x,x
@@ -2586,7 +2710,8 @@ lD2D5:
         lda #$01
         sta enemy_state,x
         rts
-lD2EC:
+; --- $D2EC  Steer up or down toward a point above him.
+ball_steer_y:
         ldy $04A0,x
         sec
         lda enemy_y,y
@@ -2616,11 +2741,12 @@ lD312:
         sta enemy_state,x
         rts
 
-; --- $D329  The Masked Devil, once the fight starts.
+; --- $D329  The orb in the middle of the room. It never moves.
 masked_devil_fight:
-        .word lD32D
-        .word lD5B2
-lD32D:
+        .word devil_still
+        .word leave_actor
+; --- $D32D  Place the orb in the middle. Then leave it there.
+devil_still:
         lda #$80
         ora $77
         sta $77
@@ -2640,11 +2766,12 @@ lD32D:
         sta enemy_state,x
         rts
 
-; --- $D357  Paces and fires two fireballs.
+; --- $D357  Floats from side to side and throws fireballs.
 jaquio:
-        .word lD35B
-        .word lD394
-lD35B:
+        .word jaquio_enter
+        .word jaquio_pace
+; --- $D35B  Float above the ground.
+jaquio_enter:
         lda #$80
         ora $77
         sta $77
@@ -2669,7 +2796,8 @@ lD35B:
         lda #$01
         sta enemy_state,x
         rts
-lD394:
+; --- $D394  Drift between the edges, and fire to either side.
+jaquio_pace:
         jsr face_ryu
         lda enemy_x,x
         cmp #$D0
@@ -2682,30 +2810,33 @@ lD3A5:
         lda enemy_timer,x
         bne lD3B9
         stx $00
-        jsr lD3BA
-        jsr lD3C9
+        jsr jaquio_left
+        jsr jaquio_right
         ldx $00
         lda #$78
         sta enemy_timer,x
 lD3B9:
         rts
-lD3BA:
-        jsr lD3D8
+; --- $D3BA  A fireball to his left.
+jaquio_left:
+        jsr jaquio_spawn
         ldy $00
         sec
         lda enemy_x,y
         sbc #$20
         sta enemy_x,x
         rts
-lD3C9:
-        jsr lD3D8
+; --- $D3C9  A fireball to his right.
+jaquio_right:
+        jsr jaquio_spawn
         ldy $00
         clc
         lda enemy_x,y
         adc #$20
         sta enemy_x,x
         rts
-lD3D8:
+; --- $D3D8  Make one fireball.
+jaquio_spawn:
         jsr alloc_enemy
         bmi lD408
         ldy $00
@@ -2731,9 +2862,10 @@ lD408:
 
 ; --- $D409  A fireball that homes in on Ryu.
 jaquio_fireball:
-        .word lD40B
-lD40B:
-        jsr lC76D
+        .word jaquio_home
+; --- $D40B  Steer toward Ryu. The steer never lets up, so a shot can swing past him and come back.
+jaquio_home:
+        jsr home_x
         sec
         lda height
         sbc #$08
@@ -2758,12 +2890,13 @@ lD42B:
         sta enemy_y_spd,x
         rts
 
-; --- $D43D  The last boss. He fires, and has a head and a tail.
+; --- $D43D  The last boss. A large creature. Head, tail, and body can all be hit.
 final_boss:
-        .word lD443
-        .word lD480
-        .word lD492
-lD443:
+        .word final_enter
+        .word final_watch
+        .word final_fire
+; --- $D443  Take his place, behind the scenery, with a head and a tail.
+final_enter:
         lda #$83
         sta $77
         lda #$81
@@ -2777,20 +2910,21 @@ lD443:
         sta enemy_y_sub,x
         jsr load_enemy_hp
         lda facing
-        ora #$20
+        ora #$20                        ; draw the body behind the scenery
         sta facing
         lda #$6C
         jsr set_enemy_action
         stx $00
-        jsr lD4BF
-        jsr lD4F2
+        jsr spawn_head
+        jsr spawn_tail
         ldx $00
         lda #$78
         sta enemy_timer,x
         lda #$01
         sta enemy_state,x
         rts
-lD480:
+; --- $D480  Keep firing. Once the head is gone, drop down.
+final_watch:
         lda $0406
         cmp #$26
         beq lD4A6
@@ -2799,7 +2933,8 @@ lD480:
         lda #$02
         sta enemy_state,x
         rts
-lD492:
+; --- $D492  As his life drops, change his pose, and fire.
+final_fire:
         lda enemy_hp,x
         cmp #$0A
         bcs lD4A6
@@ -2817,16 +2952,17 @@ lD4A6:
         stx $00
         jsr alloc_enemy
         bmi lD4B5
-        jsr lD55E
+        jsr boss_shot
 lD4B5:
         ldx $00
-        lda $BF
+        lda nmi_count
         lsr
         lsr
         sta enemy_timer,x
 lD4BE:
         rts
-lD4BF:
+; --- $D4BF  The head.
+spawn_head:
         jsr alloc_enemy
         bmi lD4F1
         lda #$26
@@ -2849,7 +2985,8 @@ lD4BF:
         sta enemy_state,x
 lD4F1:
         rts
-lD4F2:
+; --- $D4F2  The tail.
+spawn_tail:
         jsr alloc_enemy
         bmi lD524
         lda #$2B
@@ -2873,12 +3010,13 @@ lD4F2:
 lD524:
         rts
 
-; --- $D525  The head. It breaks off and slides away.
+; --- $D525  The head. Same picture as the body, in front. It falls off and slides left.
 final_boss_head:
-        .word lD52B
-        .word lD540
-        .word lD5B2
-lD52B:
+        .word head_break
+        .word head_slide
+        .word leave_actor
+; --- $D52B  When he is hurt enough, he breaks off.
+head_break:
         lda enemy_hp,x
         cmp #$06
         bcs lD53F
@@ -2890,7 +3028,8 @@ lD52B:
         sta enemy_state,x
 lD53F:
         rts
-lD540:
+; --- $D540  Once he lands, he slides away.
+head_slide:
         lda enemy_touch,x
         and #$30
         beq lD55B
@@ -2905,10 +3044,11 @@ lD540:
 lD55B:
         rts
 
-; --- $D55C  Fireballs that arc.
+; --- $D55C  Crescents. They arc, and they keep coming for the whole fight.
 final_boss_fireballs:
-        .word lD5AD
-lD55E:
+        .word boss_shot_fall
+; --- $D55E  A crescent, from up in front of him.
+boss_shot:
         lda #$29
         sta enemy_type,x
         tay
@@ -2916,7 +3056,7 @@ lD55E:
         sta enemy_hp,x
         lda #$C2
         sta slot_flags,x
-        lda $BF
+        lda nmi_count
         sta enemy_x_frac,x
         and #$03
         eor #$FF
@@ -2924,7 +3064,7 @@ lD55E:
         adc #$01
         sta enemy_x_spd,x
         jsr chase_ryu
-        lda $BF
+        lda nmi_count
         sta enemy_y_frac,x
         lda #$FC
         sta enemy_y_spd,x
@@ -2942,13 +3082,15 @@ lD55E:
         lda #$00
         sta enemy_state,x
         rts
-lD5AD:
+; --- $D5AD  The fireball falls.
+boss_shot_fall:
         jmp enemy_gravity
 
-; --- $D5B0  The tail.
+; --- $D5B0  The tail. Its own picture. It stays put until its life is gone.
 final_boss_tail:
-        .word lD5B2
-lD5B2:
+        .word leave_actor
+; --- $D5B2  This action changes nothing.
+leave_actor:
         rts
 
 ; --- $D5B3  frame loop while $04B8 bit 6 or 7 is set -----------------------
@@ -3045,7 +3187,7 @@ lD659:
 score_leftovers:
         dec $04BA
         bpl lD694
-        lda $BF
+        lda nmi_count
         and #$01
         bne lD66A
         lda #$13
@@ -5991,7 +6133,7 @@ prepare_area:
         tay
         clc
         adc #$A4
-        sta $49
+        sta $49                         ; ground_kind, one table per area_gfx pair
         lda #$30
         sta $48
         tya
@@ -7559,7 +7701,7 @@ sprite0_split:
         sta PPUCTRL
         rts
 
-; --- $F5EA  Load this room's ground.
+; --- $F5EA  Copy what each block in this column does to Ryu.
 load_ground:
         lda #$00
         sta MMC1_PRG
@@ -8151,7 +8293,7 @@ nmi:
         ldx $2E
         lda #$FF
         sta nmi_latch
-        inc $BF
+        inc nmi_count
         lda $2D
 irq:
         rti

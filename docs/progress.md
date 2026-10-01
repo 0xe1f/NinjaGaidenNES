@@ -24,6 +24,81 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   `set_action` (`$F62D`) starts that action. `actor_kind` (`$C195`) is one
   entry per enemy, each pointing at that enemy's actions (`$C1ED`–`$D5B2`).
   `pick_area` (`$C0E9`) is a hidden stage select the game never calls.
+  `test_sound` (`$C104`) plays the number until it is 0. `pick_stage`
+  (`$C110`) then asks for the stage. `redraw_number` (`$C128`) draws
+  it. `digit_inc` (`$C17B`) adds one and `digit_dec` (`$C180`)
+  subtracts one. `release_pad` (`$C174`) waits until Start is let go.
+  The boxer walks (`boxer_walk`, `$C1F9`), closes in (`boxer_close`,
+  `$C21D`), waits (`boxer_wait`, `$C241`), jumps (`boxer_jump`,
+  `$C259`), rises (`boxer_rise`, `$C26A`), punches (`boxer_punch`,
+  `$C27C`), and lands (`boxer_land`, `$C2A3`). The machine gunner
+  walks, paces, and fires (`gunner_walk` `$C2B6`, `gunner_pace`
+  `$C2DC`, `gunner_fire` `$C307`). The thrower walks, paces, throws,
+  and holds (`thrower_walk` `$C344`, `thrower_pace` `$C368`,
+  `thrower_toss` `$C37E`, `thrower_hold` `$C3AE`). The batter chases
+  and turns (`batter_chase` `$C3BD`, `batter_turn` `$C3E1`). The knife
+  thrower walks and throws high, then low (`knife_arm` `$C402`,
+  `knife_walk` `$C41B`, `knife_high` `$C431`, `knife_again` `$C466`,
+  `knife_low` `$C487`, `knife_reset` `$C4BE`). The crouching soldier
+  aims, fires, and aims again (`crouch_aim` `$C4D5`, `crouch_fire`
+  `$C4F1`, `crouch_cycle` `$C51D`). The kicker walks, jumps in, pauses,
+  spins a kick, and lands (`kicker_walk` `$C53C`, `kicker_near` `$C55A`,
+  `kicker_pause` `$C577`, `kicker_kick` `$C58E`, `kicker_land`
+  `$C5AE`). The runner runs, hops, and lands (`runner_go` `$C5C1`,
+  `runner_hop` `$C5E5`, `runner_land` `$C5FF`). The bat swoops and bobs
+  (`bat_swoop` `$C615`, `bat_bob` `$C64E`). The attacking dog runs and
+  leaps (`hound_run` `$C67F`, `hound_leap` `$C6B3`). The waiting dog
+  sits, wakes, and leaps (`dog_sit` `$C6D4`, `dog_wake` `$C6F5`,
+  `dog_leap` `$C71A`). The bird matches Ryu's height and steers
+  (`bird_rise` `$C739`, `bird_home` `$C75D`, `home_x` `$C76D`). The
+  jetpack ninja hovers and throws (`jet_hover` `$C7AB`, `jet_aim`
+  `$C7D7`, `jet_thrown` `$C80E`). The running ninja stands, runs,
+  jumps, lands, and runs again (`ninja_stand` `$C828`, `ninja_run`
+  `$C849`, `ninja_jump` `$C86B`, `ninja_land` `$C88C`, `ninja_resume`
+  `$C8A3`). The stone man paces and throws his ring (`stone_start`
+  `$C8BE`, `stone_pace` `$C8EA`, `stone_throw` `$C93B`, `stone_follow`
+  `$C963`, `stone_rest` `$C9A9`). The ghouls hop (`ghoul_hop` `$C9BA`,
+  `ghoul_bounce` `$C9EA`, `ghoul_land` `$CA13`, `lurker_wait` `$CA2E`,
+  `lurker_wake` `$CA52`, `lurker_bounce` `$CA65`, `lurker_land`
+  `$CA8E`). Their shots are `gun_shot` (`$CAA5`), `throw_axe`
+  (`$CAE9`), `axe_fall` (`$CB30`), `throw_knife` (`$CB37`),
+  `crouch_shot` (`$CB73`), `ninja_star` (`$CBC2`), `throw_ring`
+  (`$CC0B`), and `ring_back` (`$CC4E`). `leave_actor` (`$D5B2`) is an
+  action that changes nothing.
+  `nmi_count` (`$BF`) counts up every frame. The Barbarian walks and
+  swings his sword (`barbarian_setup` `$CCA5`, `barbarian_walk` `$CCC5`,
+  `barbarian_stride` `$CCE1`, `barbarian_stop` `$CCEC`,
+  `barbarian_hold` `$CD02`, `barbarian_turn` `$CD0D`,
+  `barbarian_face` `$CD1E`, `barbarian_pause` `$CD2E`). Bomberhead
+  swings his sickle (`bomber_setup` `$CD41`, `bomber_close` `$CD87`,
+  `bomber_swing` `$CDA4`, `bomber_chase` `$CDC5`, `spawn_sickle`
+  `$CDD6`). The sickle follows his pose (`sickle_place` `$CDFE`,
+  `sickle_out` `$CE29`, `sickle_low` `$CE4E`). Basaquer jumps and
+  fires three shots (`basaquer_enter` `$CE7F`, `basaquer_jump`
+  `$CEA8`, `basaquer_land` `$CEC1`, `basaquer_turn` `$CEE3`,
+  `basaquer_fire` `$CF01`, `shot_high` `$CF20`, `shot_mid` `$CF39`,
+  `shot_low` `$CF52`, `spawn_shot` `$CF69`, `shot_release` `$CFA4`).
+  Kelbeross is two of the same creature. They jump and breathe fire (`kelbeross_enter`
+  `$CFB6`, `kelbeross_ready` `$D015`, `kelbeross_jump` `$D02D`,
+  `kelbeross_breathe` `$D052`, `kelbeross_fire` `$D0A0`). Bloody Malth
+  walks and calls lightning (`malth_enter` `$D0F7`, `malth_walk`
+  `$D11A`, `malth_stop` `$D131`, `malth_call` `$D14D`, `malth_pose`
+  `$D15B`, `malth_again` `$D170`, `call_lightning` `$D179`,
+  `bolt_wait` `$D1C9`, `bolt_aim` `$D1DE`, `bolt_fall` `$D1FE`). The
+  Masked Devil walks in from the right, swords out (`devil_walk`
+  `$D223`, `devil_call` `$D256`). `devil_spawn` (`$D270`) puts a
+  fireball in the middle of the room. `ball_steer_x` (`$D2B2`) and
+  `ball_steer_y` (`$D2EC`) steer it toward him. `devil_still`
+  (`$D32D`) is the orb, and it never moves. Jaquio floats and fires
+  (`jaquio_enter` `$D35B`, `jaquio_pace` `$D394`, `jaquio_left`
+  `$D3BA`, `jaquio_right` `$D3C9`, `jaquio_spawn` `$D3D8`,
+  `jaquio_home` `$D40B`). The last boss is a large creature. His body
+  is drawn behind the scenery. His head falls and slides left. His
+  tail stays put. Crescents come out the whole fight (`final_enter`
+  `$D443`,
+  `final_watch` `$D480`, `final_fire` `$D492`, `spawn_head` `$D4BF`,
+  `spawn_tail` `$D4F2`, `head_break` `$D52B`, `head_slide` `$D540`,
+  `boss_shot` `$D55E`, `boss_shot_fall` `$D5AD`).
   `$D63A`–`$E346` is the rest of a play frame: boss death, Ryu's weapons,
   lanterns and their power-ups, and each enemy's turn. `scroll_stage`
   (`$F1AC`) scrolls the stage when Ryu is in the middle of the screen.
@@ -35,7 +110,10 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   and where the enemies and lanterns stand in a room.
 - PRG bank 00 (`prg/bank00.asm`) is the areas and the rooms. The ground
   for each room, where Ryu enters, the act and stage, and each enemy's
-  health, the damage he does, and the points he is worth.
+  health, the damage he does, and the points he is worth. `ground_kind`
+  (`$A430`) is what each quarter of a block does to Ryu. Four tables,
+  and the low bits of `area_gfx` pick one. The bytes after Act VI,
+  stage 5 are these tables, not another room.
 - PRG bank 03 (`prg/bank03.asm`) is the sounds, switched in at `$8000`.
   NMI calls `play_sounds` (`$8000`) every frame. `start_sound` (`$8243`)
   starts the number in `sound` (`$0600`): the stage, a jump, the sword,
@@ -135,7 +213,8 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   screen to show. `screen_colors` (`$B40A`) is black and white.
   `area_screen` (`$B41E`) is shown when an area starts. `game_over`
   (`$B471`) is the game-over screen. `stage_select` (`$B47E`) is the
-  stage select. `sound_screen` (`$B488`) says SOUND. `reset_copy_01`
+  stage select. `sound_screen` (`$B488`) says SOUND. Nothing calls
+  `pick_area`, so those two never show. `reset_copy_01`
   (`$BFDA`) is the same first instructions as reset.
 - PRG bank 06 (`prg/bank06.asm`) is the cutscene pictures and the lines
   that are spoken, switched in at `$8000`. `draw_picture` (`$8000`) draws
@@ -237,6 +316,19 @@ bank 07 at `$C000`, so each switched bank can be its own file.
   pictures `$17` and `$18`. `irene_later` is list `$0A`, pictures `$23`
   and `$24`. `walter_poses` is list 2, pictures `$19` and `$1A`.
   `jaquio_poses` is list `$08`, pictures `$26` and `$27`.
+  `run_poses` is list 0: `run_a` (`$08`) and `run_b` (`$09`), the two
+  steps of a run. `malth_poses` is list `$06` and `malth_laughs` is
+  list `$07`. `malth_mouth` (`$1F`) is Malth talking, `malth_open`
+  (`$20`) is his mouth open, and `malth_laugh` (`$21`) is the laugh.
+  He says "Have a nice day." `face_right` (`$06`) and `face_left`
+  (`$07`) are the two profiles in the opening duel. `flat_sword`
+  (`$0C`) is a sword held flat. `ryu_cliff` (`$2F`) is Ryu on the
+  cliff with the sword. `tecmo_logo` (`$32`) is TECMO. `act_1`
+  through `act_6` (`$50`–`$55`) are ACT I through ACT VI. `the_moon`
+  (`$4E`) is the moon during the eclipse. `irene_e` (`$25`) is Irene
+  Lew, one more mouth. `blank_frame` (`$4D`) draws nothing, and a pose
+  rests there so the picture vanishes. `unused_blank` (`$22`) draws
+  nothing, and no script shows it.
   `pixel_shift` (`$83DF`) is how many pixels to shift a sprite.
   `picture_path` (`$84AB`) is where a picture walks. `walk_right` steps
   to the right. `walk_left` steps to the left. `actor_pics`

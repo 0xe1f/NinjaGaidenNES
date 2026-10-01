@@ -42,9 +42,15 @@ shows game over and waits for Start.
 `area_gfx` (`$AF00`) picks the pictures for this area, in bank 1.
 `block_tiles` (`$8000`) is the four tiles in one block. `which_blocks`
 (`$A000`) says which blocks to draw. `block_tile` (`$B000`) is the tile
-drawn for that block. `show_screen` (`$F0F3`) draws a screen from
+drawn for that block. `ground_kind` (`$A430`) is what each quarter of a
+block does to Ryu: two bytes per block, and the low bits of `area_gfx`
+pick one of four tables (`$A430`, `$A630`, `$A830`, `$AA30`). The bytes
+after Act VI, stage 5 are these tables, not another room. `load_ground`
+(`$F5EA`) copies one column, and `tile_at` (`$E792`) reads it back.
+`show_screen` (`$F0F3`) draws a screen from
 `screen_list` (`$B400`): black and white, the screen an area starts on,
-game over, the stage select, or SOUND.
+game over, the stage select, or SOUND. The stage select and SOUND are
+only reached from `pick_area`, which nothing calls, so they never show.
 
 `player_control` (`$EB7B`) runs every play frame. `$8A` is Ryu's height,
 `$89` his vertical speed, and `$87` the fraction under it. Each airborne
@@ -58,7 +64,13 @@ the equipped sub-weapon. `$84` bit 6 faces him left; bit 2 is airborne.
 `run_enemies` (`$DD32`) gives every enemy on screen a turn. A lantern
 appears when the screen reaches it (`spawn_lanterns`, `$D8D5`). Slashing it
 drops the power-up inside. Power-up 4 is the Hourglass: every enemy freezes
-for about five seconds (`$D0` bit 7). Power-up 2 is a 1-UP.
+for about five seconds (`$D0` bit 7). Power-up 2 is a 1-UP. The picture
+that falls out is `$E60D`, indexed by the power-up. 5 ninpo and 10 ninpo
+are both picture `$19`. 5 points and 10 points are both `$22`. The low
+bits of `$E619` pick a later color set of that same picture, so the 10
+looks different from the 5. Ryu picture `$29` is not in that list. It is
+one tile, `$78`, in sprite palette 1, and nothing selects it. The
+machine gunner's action `$29` is a different picture, in the enemy table.
 
 The weapon in `$C9` is one of: Throwing Star `$81` (3 ninpo, flies straight),
 Windmill Throwing Star `$82` (5 ninpo, cuts through and comes back), Art of
@@ -81,6 +93,49 @@ the list are unused. `pick_area` (`$C0E9`) is a hidden stage
 select. Nothing in the game calls it. Up, A, B, and Start opens a sound
 test first; picking 0 leaves that and then you pick the stage. A and
 Right add one, A and Left subtract one, Start confirms.
+
+The boxer walks in and punches. The machine gunner fires three shots.
+The thrower lobs an axe. The batter chases and turns at a wall. The
+knife thrower throws high, then low. The crouching soldier fires from
+the ground. The kicker jumps in, then spins a kick. The runner hops over gaps.
+The bat rises and falls. One dog runs and leaps; the other sits until
+Ryu is close. The bird steers toward him. The jetpack ninja throws a
+shuriken when he is near. The running ninja jumps at a gap or when Ryu
+is close. The stone man paces, then throws a ring that comes back. The
+ghouls hop, a short hop while Ryu is far and a long one when he is
+close. One of them waits until he is close. A shot keeps the speed it
+was given. `leave_actor` is an action that changes nothing: the flying
+shots use it, and so do Kelbeross's fireball, part of the masked
+devil's fight, the last boss's head, and his tail.
+
+`nmi_count` goes up by one every frame. A few enemies use it to vary
+a wait or a throw.
+
+The Barbarian walks in, stops, and swings his sword, then walks again.
+Bomberhead swings a sickle that sits further out as his pose changes.
+Basaquer hops in an arc, reversing sideways each time he lands. When he
+is the only one left, he fires three shots, one above the other, on
+half the frames. Kelbeross is two of the same creature, facing opposite
+ways. Each waits, jumps, and breathes a fireball. Bloody Malth walks,
+stops, and calls lightning down beside him. The bolt then falls toward
+Ryu. The Masked Devil is a large fighter with a sword out to either
+side. He walks in from the right. An orb sits in the middle and never
+moves. His fireballs appear at that spot and steer toward him. Jaquio
+floats from side to side and throws fireballs. Those shots steer toward
+Ryu, and the steer can carry one past him and back. His fight starts
+action `$56`, picture `$70`. The fireballs start action `$57`, pictures
+`$73` and `$74`. Pictures `$6D`, `$6E`, and `$6F` are actions `$53`,
+`$54`, and `$55`, and nothing starts those actions, so they never show.
+Action `$58` shows `$71` and `$72`, the same tiles as the fireballs with
+the halves swapped, and nothing starts that either. Pictures `$75` and
+`$76` are tile `$A6` twice, flipped differently. No action lists them.
+An enemy's picture comes only from the action he is on
+(`set_enemy_action` at `$E254`, then `step_enemy` at `$DFE9`). The last boss is a
+large creature. His body is drawn behind the scenery. His head uses the
+same picture, in front, and when it is hurt enough it falls and slides
+off to the left. His tail has its own picture and stays put until its
+life is gone. Once the head is gone, the body drops. Crescents arc out
+from in front of him for the whole fight.
 
 ## Cutscenes
 
@@ -167,10 +222,17 @@ long each pose stays. The high half of that byte is reloaded when the
 low half runs out.
 
 Irene Lew is pose list 1, pictures `$17` and `$18`, and list `$0A`,
-pictures `$23` and `$24`.
+pictures `$23` and `$24`. Picture `$25` is one more mouth.
 Walter Smith is list 2, pictures `$19` and `$1A`. The Jaquio is list
-`$08`, pictures `$26` and `$27`. One path steps to the right. The
-other steps to the left.
+`$08`, pictures `$26` and `$27`. List 0 is a run, `run_a` and `run_b`.
+Malth's mouth is list `$06` and list `$07`: talking, open, and the
+laugh. He is the one who says "Have a nice day." The opening duel
+shows two faces in profile, `face_right` and `face_left`. A sword lies
+flat in `flat_sword`. Ryu stands on the cliff in `ryu_cliff`. The
+opening logo is TECMO. The act cards are ACT I through ACT VI. The
+moon is the full circle during the eclipse. One pose draws nothing
+for a frame. Another picture draws nothing, and no script shows it.
+One path steps to the right. The other steps to the left.
 
 Foster says he is from the CIA. Later he orders the demon statues
 stolen, and Ryu killed. Irene Lew gives her name after the temple.

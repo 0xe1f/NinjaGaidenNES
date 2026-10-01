@@ -2,9 +2,11 @@
 name: ng-annotate
 description: >-
   Name and comment Ninja Gaiden routines, data, and instructions in
-  player-facing language while disassembling. Use when lifting a bank,
-  naming a label or a repeated address, commenting a statement, revisiting
-  older unannotated code, or writing anything in prg/*.asm comments.
+  player-facing language while disassembling, investigating, or generating
+  maps and spritesheets. Use when lifting a bank, naming a label or a
+  repeated address, commenting a statement, revisiting older unannotated
+  code, recording a definite finding, or writing anything in prg/*.asm
+  comments.
 ---
 
 # Annotations
@@ -38,6 +40,10 @@ Examples of bad annotations:
 Additionally, annotate single statements, with short, concise information whenever purpose is known definitively. Statement annotations can be technical, but not overly so — one should not need to have an intimate knowledge of hardware to understand its meaning.
 
 When revisiting older unannotated code, name and annotate if the picture is now clear enough.
+
+Investigating the game, or generating a map or a spritesheet, is the same work as reading the source. When that work makes a picture clear enough to name, name it and comment it in the same step. The certainty bar, the player-facing wording, where the comment goes, and `make verify` still apply. A sheet or a map is not a reason to guess.
+
+Unused artifacts, routines, data, and code get a label comment that says they are unused, and they are recorded in `docs/game-notes.md` (`ng-notes`).
 
 Name a repeated address (a RAM byte, a flag, a table) when the same bar is met and the same thing is used in more than one place. One-off scratch stays numeric.
 

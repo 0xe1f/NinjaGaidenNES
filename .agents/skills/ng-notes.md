@@ -2,9 +2,12 @@
 name: ng-notes
 description: >-
   Update docs/progress.md after every Ninja Gaiden conversion from
-  INCBIN to .asm, and refresh progress and docs/game-notes.md in full
-  detail before each commit. Use when a bank or block becomes source,
-  when finishing a disassembly step, or when preparing a commit.
+  INCBIN to .asm, record definite findings and unused artifacts in
+  docs/game-notes.md when they turn up, and refresh progress and
+  game-notes in full detail before each commit. Use when a bank or
+  block becomes source, when investigating or generating a map or a
+  spritesheet turns up something the notes do not have, when finishing
+  a disassembly step, or when preparing a commit.
 ---
 
 # Progress and notes
@@ -28,6 +31,12 @@ When a bank or a block stops being `INCBIN` and becomes `.asm`, update
   when a caller or a table already points at it.
 
 Leave the end goal as it is.
+
+## When a finding turns up
+
+Investigating, or generating a map or a spritesheet, can show something the source does not name yet. Name and comment it in the same step (`ng-annotate`), at the same bar.
+
+Unused artifacts, routines, data, and code also go in `docs/game-notes.md` then, not only before a commit. Say where they live, what they would have been, and that nothing reads or starts them.
 
 ## Before each commit
 

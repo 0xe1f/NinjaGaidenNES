@@ -693,14 +693,14 @@ pixel_shift:
 
 ; --- $8408  Which pictures a pose steps through.
 pose_list:
-        .word s8430
+        .word run_poses
         .word irene_poses
         .word walter_poses
         .word s843F
         .word s8457
         .word s845A
-        .word s845D
-        .word s8460
+        .word malth_poses
+        .word malth_laughs
         .word jaquio_poses
         .word s8466
         .word irene_later
@@ -715,8 +715,8 @@ pose_list:
         .word s84A1
 
 ; Each list ends with $FF and then repeats.
-; Pictures $08 and $09.
-s8430:
+; A run. One step, then the other.
+run_poses:
         .byte $08, $09, $FF
 
 ; Irene Lew. Pictures $17 and $18.
@@ -736,17 +736,17 @@ s8457:
 ; Pictures $39 and $3A.
 s845A:
         .byte $39, $3A, $FF
-; Pictures $1F and $21.
-s845D:
+; Malth talking, then laughing.
+malth_poses:
         .byte $1F, $21, $FF
-; Pictures $20 and $21.
-s8460:
+; Malth, mouth open, then laughing.
+malth_laughs:
         .byte $20, $21, $FF
 
 ; The Jaquio. Pictures $26 and $27.
 jaquio_poses:
         .byte $26, $27, $FF
-; Pictures $34, $35, and $4D.
+; Pictures $34 and $35, then nothing.
 s8466:
         .byte $34, $35, $4D, $FF
 
@@ -759,7 +759,7 @@ s846D:
 ; Pictures $46, then $47, then $48.
 s8470:
         .byte $46, $46, $46, $46, $47, $47, $48, $48, $47, $FF
-; Pictures $57 and $4D.
+; Picture $57, then nothing.
 s847A:
         .byte $57, $4D, $FF
 ; Pictures $58 through $5D, then $62, $63, and $64.
@@ -804,13 +804,13 @@ actor_pics:
         .word s85C9
         .word s85E1
         .word s85FF
-        .word s8617
-        .word s8665
-        .word s86B3
-        .word s8705
+        .word face_right
+        .word face_left
+        .word run_a
+        .word run_b
         .word s8731
         .word s8745
-        .word s8759
+        .word flat_sword
         .word s876F
         .word s878D
         .word s879B
@@ -829,13 +829,13 @@ actor_pics:
         .word s88CD
         .word s8901
         .word s894D
-        .word s8967
-        .word s8971
-        .word s897B
-        .word s8985
+        .word malth_mouth
+        .word malth_open
+        .word malth_laugh
+        .word unused_blank
         .word irene_c
         .word irene_d
-        .word s8A13
+        .word irene_e
         .word jaquio_a
         .word jaquio_b
         .word s8A8D
@@ -845,10 +845,10 @@ actor_pics:
         .word s8B19
         .word s8B1F
         .word s8B27
-        .word s8B3B
+        .word ryu_cliff
         .word s8B8B
         .word s8B91
-        .word s8B97
+        .word tecmo_logo
         .word s8BB9
         .word s8C09
         .word s8C13
@@ -875,15 +875,15 @@ actor_pics:
         .word s8F29
         .word s8F73
         .word s8FBD
-        .word s8FF1
-        .word s8FF3
+        .word blank_frame
+        .word the_moon
         .word s9045
-        .word s908F
-        .word s90B1
-        .word s90D3
-        .word s90F5
-        .word s9117
-        .word s9139
+        .word act_1
+        .word act_2
+        .word act_3
+        .word act_4
+        .word act_5
+        .word act_6
         .word s915B
         .word s9165
         .word s916F
@@ -926,30 +926,30 @@ s85E1:
 s85FF:
         .byte $13, $02, $01, $58, $22, $03, $03, $52, $12, $5A, $22, $64, $32, $04, $02, $54
         .byte $12, $5C, $22, $05, $01, $56, $12, $80
-; Picture $06.
-s8617:
+; A face in profile, looking right. The opening duel.
+face_right:
         .byte $1E, $08, $01, $36, $03, $00, $01, $34, $03, $01, $03, $32, $01, $3A, $15, $46
         .byte $23, $02, $04, $30, $01, $4E, $15, $44, $23, $4C, $33, $03, $06, $52, $05, $18
         .byte $17, $5A, $15, $42, $23, $4A, $33, $62, $4B, $04, $05, $50, $05, $58, $11, $40
         .byte $23, $48, $33, $60, $4B, $05, $05, $22, $01, $2A, $11, $FC, $23, $1E, $33, $3E
         .byte $4B, $06, $05, $20, $03, $28, $13, $FC, $23, $1C, $33, $3C, $4B, $80
-; Picture $07.
-s8665:
+; A face in profile, looking left. The other fighter.
+face_left:
         .byte $1E, $09, $01, $36, $02, $07, $01, $34, $02, $06, $03, $32, $00, $3A, $14, $46
         .byte $22, $05, $04, $30, $00, $38, $14, $44, $22, $4C, $32, $04, $06, $26, $04, $1A
         .byte $16, $2E, $14, $42, $22, $4A, $32, $62, $4A, $03, $05, $24, $04, $2C, $10, $40
         .byte $22, $48, $32, $60, $4A, $02, $05, $22, $00, $2A, $10, $FC, $22, $1E, $32, $3E
         .byte $4A, $01, $05, $20, $02, $28, $12, $FC, $22, $1C, $32, $3C, $4A, $80
-; Picture $08.
-s86B3:
+; One step of a run. The legs.
+run_a:
         .byte $1C, $00, $02, $00, $10, $08, $20, $01, $02, $02, $10, $0A, $20, $02, $02, $04
         .byte $10, $0C, $20, $03, $03, $06, $10, $0E, $20, $20, $30, $20, $01, $36, $48, $04
         .byte $02, $10, $10, $22, $30, $05, $01, $12, $10, $06, $01, $14, $10, $07, $01, $16
         .byte $10, $21, $01, $18, $20, $22, $01, $1A, $20, $23, $01, $1C, $20, $24, $01, $1E
         .byte $20, $09, $02, $24, $30, $32, $48, $0A, $02, $26, $30, $34, $48, $0B, $01, $30
         .byte $30, $80
-; Picture $09.
-s8705:
+; The other step.
+run_b:
         .byte $1C, $02, $02, $28, $10, $38, $20, $03, $02, $2A, $10, $3A, $20, $04, $02, $2C
         .byte $10, $3C, $20, $05, $04, $2E, $10, $3E, $20, $68, $30, $60, $48, $06, $03, $40
         .byte $20, $48, $30, $62, $48, $07, $02, $42, $20, $4A, $30, $80
@@ -961,8 +961,8 @@ s8731:
 s8745:
         .byte $1E, $02, $02, $64, $18, $6C, $28, $03, $02, $66, $1C, $6E, $2C, $04, $02, $70
         .byte $1A, $78, $2A, $80
-; Picture $0C.
-s8759:
+; A sword, held flat.
+flat_sword:
         .byte $1E, $01, $01, $80, $26, $02, $01, $82, $26, $03, $01, $84, $26, $04, $01, $86
         .byte $26, $05, $01, $90, $26, $80
 ; Picture $0D.
@@ -1043,17 +1043,17 @@ s8901:
 s894D:
         .byte $14, $10, $01, $F6, $20, $0E, $01, $EC, $20, $03, $01, $F6, $20, $04, $01, $EC
         .byte $20, $11, $01, $F6, $20, $0D, $01, $EC, $20, $80
-; Picture $1F.
-s8967:
+; Malth, talking. He says "Have a nice day."
+malth_mouth:
         .byte $18, $03, $01, $66, $20, $04, $01, $70, $20, $80
-; Picture $20.
-s8971:
+; Malth, mouth open.
+malth_open:
         .byte $18, $03, $01, $3E, $20, $04, $01, $68, $20, $80
-; Picture $21.
-s897B:
+; Malth, laughing.
+malth_laugh:
         .byte $18, $03, $01, $6A, $20, $04, $01, $6C, $20, $80
-; Picture $22.
-s8985:
+; Nothing is drawn. No script shows it.
+unused_blank:
         .byte $1F, $80
 
 ; Irene Lew. Picture $23.
@@ -1071,8 +1071,8 @@ irene_d:
         .byte $04, $2E, $00, $DC, $12, $8E, $22, $A6, $32, $05, $05, $38, $00, $DE, $12, $98
         .byte $22, $B2, $34, $B0, $32, $06, $04, $3A, $00, $92, $12, $9A, $22, $A0, $32, $07
         .byte $02, $3C, $00, $94, $12, $80
-; Picture $25.
-s8A13:
+; Irene Lew. One more mouth, after the other two.
+irene_e:
         .byte $1F, $01, $02, $28, $00, $80, $12, $02, $04, $2A, $00, $D8, $12, $8A, $22, $A2
         .byte $32, $12, $01, $E6, $2C, $03, $04, $2C, $00, $DA, $12, $8C, $22, $A4, $32, $04
         .byte $04, $2E, $00, $DC, $12, $8E, $22, $A6, $32, $05, $05, $38, $00, $DE, $12, $98
@@ -1116,8 +1116,8 @@ s8B1F:
 s8B27:
         .byte $17, $03, $02, $C2, $10, $CA, $20, $04, $02, $C4, $10, $CC, $20, $05, $02, $C6
         .byte $10, $CE, $20, $80
-; Picture $2F.
-s8B3B:
+; Ryu on the cliff, sword in hand.
+ryu_cliff:
         .byte $19, $00, $01, $1A, $4A, $01, $02, $14, $32, $1C, $4A, $02, $04, $0E, $10, $26
         .byte $20, $16, $32, $1E, $4A, $13, $01, $10, $02, $03, $05, $00, $64, $08, $00, $20
         .byte $10, $40, $32, $48, $4A, $04, $05, $02, $60, $0A, $00, $22, $10, $42, $32, $4A
@@ -1129,8 +1129,8 @@ s8B8B:
 ; Picture $31.
 s8B91:
         .byte $19, $05, $01, $06, $60, $80
-; Picture $32.
-s8B97:
+; TECMO.
+tecmo_logo:
         .byte $1B, $00, $01, $78, $26, $01, $01, $7A, $26, $02, $01, $7C, $26, $03, $01, $7E
         .byte $26, $04, $01, $D0, $26, $05, $01, $D2, $26, $06, $01, $D4, $26, $07, $01, $D6
         .byte $26, $80
@@ -1266,11 +1266,11 @@ s8FBD:
         .byte $10, $FA, $20, $FA, $30, $04, $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $05
         .byte $04, $FA, $00, $FA, $10, $FA, $20, $FA, $30, $06, $04, $FA, $00, $FA, $10, $FA
         .byte $20, $FA, $30, $80
-; Picture $4D.
-s8FF1:
+; Nothing is drawn. A pose rests on this, so the picture vanishes.
+blank_frame:
         .byte $11, $80
-; Picture $4E.
-s8FF3:
+; The moon. It is up during the eclipse.
+the_moon:
         .byte $12, $00, $04, $20, $00, $28, $10, $30, $20, $2A, $30, $01, $04, $22, $00, $FC
         .byte $10, $FC, $20, $2C, $30, $02, $04, $24, $00, $FC, $10, $FC, $20, $2E, $30, $03
         .byte $04, $26, $00, $FC, $10, $FC, $20, $38, $30, $04, $04, $26, $01, $FC, $10, $FC
@@ -1284,33 +1284,33 @@ s9045:
         .byte $22, $6E, $32, $04, $04, $50, $00, $58, $12, $70, $22, $78, $32, $05, $04, $52
         .byte $00, $5A, $12, $72, $22, $7A, $32, $06, $04, $54, $00, $5C, $12, $74, $22, $7C
         .byte $32, $07, $03, $56, $00, $5E, $12, $7E, $32, $80
-; Picture $50.
-s908F:
+; ACT I.
+act_1:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $8C, $18, $07, $01, $8E
         .byte $18, $80
-; Picture $51.
-s90B1:
+; ACT II.
+act_2:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A0, $18, $07, $01, $A2
         .byte $18, $80
-; Picture $52.
-s90D3:
+; ACT III.
+act_3:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A4, $18, $07, $01, $A6
         .byte $18, $80
-; Picture $53.
-s90F5:
+; ACT IV.
+act_4:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $A8, $18, $07, $01, $AA
         .byte $18, $80
-; Picture $54.
-s9117:
+; ACT V.
+act_5:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $AC, $18, $07, $01, $AE
         .byte $18, $80
-; Picture $55.
-s9139:
+; ACT VI.
+act_6:
         .byte $11, $00, $01, $80, $18, $01, $01, $82, $18, $02, $01, $84, $18, $03, $01, $86
         .byte $18, $04, $01, $88, $18, $05, $01, $8A, $18, $06, $01, $F4, $18, $07, $01, $F6
         .byte $18, $80

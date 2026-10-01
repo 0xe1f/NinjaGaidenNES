@@ -844,13 +844,13 @@ game_over:
         .byte $A6, $A0, $AC, $A4, $FA, $AE, $B5, $A4, $B1 ; GAME OVER
         .byte $00
 
-; --- $B47E  The stage select.
+; --- $B47E  The stage select. Nothing calls pick_area, so this never shows.
 stage_select:
         .byte $06, $8C, $21                 ; 6 bytes at $218C
         .byte $15, $0B, $0C, $11, $0C, $18
         .byte $00
 
-; --- $B488  SOUND.
+; --- $B488  SOUND. Nothing calls pick_area, so this never shows.
 sound_screen:
         .byte $06, $8C, $21                 ; 6 bytes at $218C
         .byte $B2, $AE, $B4, $AD, $A3, $18        ; SOUND

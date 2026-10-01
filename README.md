@@ -2,9 +2,9 @@
 
 [![verify](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml/badge.svg)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
 [![in source](https://img.shields.io/badge/in_source-256_%2F_256_KiB-brightgreen?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![named](https://img.shields.io/badge/named-605_left-red?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![op comments](https://img.shields.io/badge/op_comments-6.3%25-orange?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
-[![sub comments](https://img.shields.io/badge/sub_comments-155_%2F_158-brightgreen?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![named](https://img.shields.io/badge/named-589_left-red?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![op comments](https://img.shields.io/badge/op_comments-6.5%25-orange?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
+[![sub comments](https://img.shields.io/badge/sub_comments-168_%2F_171-brightgreen?style=flat)](https://github.com/0xe1f/NinjaGaidenNES/actions/workflows/verify.yml)
 
 > This project is a human-guided, largely AI-executed workflow.
 
